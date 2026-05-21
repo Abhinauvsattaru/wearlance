@@ -487,6 +487,13 @@ export default function App() {
       return;
     }
 
+    const cleanEmail = forgotForm.email.trim().toLowerCase();
+
+    setResetForm((prev) => ({
+      ...prev,
+      email: cleanEmail,
+    }));
+
     try {
       const response = await fetch(`${AUTH_API}/forgot-password`, {
         method: "POST",
@@ -494,24 +501,24 @@ export default function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: forgotForm.email,
+          email: cleanEmail,
         }),
       });
 
       const data = await response.json();
 
-      if (!data.success) {
+      if (!response.ok || !data.success) {
         showToast(data.message || "Could not send reset OTP");
         return;
       }
 
       setResetForm({
-        email: data.email || forgotForm.email,
+        email: data.email || cleanEmail,
         otp: "",
         newPassword: "",
       });
 
-      showToast("Password reset OTP sent");
+      showToast("Password reset OTP sent. Check Inbox/Spam.");
       setPage("resetPassword");
     } catch (error) {
       console.error(error);
@@ -1633,6 +1640,9 @@ export default function App() {
           forgotForm={forgotForm}
           setForgotForm={setForgotForm}
           forgotPassword={forgotPassword}
+          resetForm={resetForm}
+          setResetForm={setResetForm}
+          resetPassword={resetPassword}
           setPage={setPage}
         />
       )}
@@ -6607,13 +6617,16 @@ function ForgotPasswordPage({
   forgotForm,
   setForgotForm,
   forgotPassword,
+  resetForm,
+  setResetForm,
+  resetPassword,
   setPage,
 }) {
   return (
     <AuthLayout
       theme={theme}
       title="Forgot Password"
-      subtitle="Enter your email. We will send an OTP to reset your password."
+      subtitle="Send an OTP to your email, then enter OTP and new password on the same page."
     >
       <form onSubmit={forgotPassword}>
         <h2
@@ -6625,19 +6638,110 @@ function ForgotPasswordPage({
           Reset Request
         </h2>
 
+        <p
+          style={{
+            color: theme.muted,
+            lineHeight: 1.6,
+            marginBottom: 0,
+          }}
+        >
+          Enter the email used for your Wearlance account. After clicking send,
+          check Inbox, Updates, Promotions, and Spam.
+        </p>
+
         <input
           placeholder="Email address"
           value={forgotForm.email}
-          onChange={(e) =>
+          onChange={(e) => {
+            const email = e.target.value;
+
             setForgotForm({
               ...forgotForm,
+              email,
+            });
+
+            setResetForm((prev) => ({
+              ...prev,
+              email,
+            }));
+          }}
+          style={authInput(theme)}
+        />
+
+        <button style={authButton()}>Send Reset OTP</button>
+      </form>
+
+      <div
+        style={{
+          margin: "24px 0",
+          height: 1,
+          background: theme.border,
+        }}
+      />
+
+      <form onSubmit={resetPassword}>
+        <h3
+          style={{
+            fontSize: 24,
+            margin: "0 0 6px",
+          }}
+        >
+          Enter OTP & New Password
+        </h3>
+
+        <p
+          style={{
+            color: theme.muted,
+            marginTop: 0,
+            lineHeight: 1.6,
+          }}
+        >
+          Use this section after you receive the OTP. This also works if you
+          already requested an OTP earlier.
+        </p>
+
+        <input
+          placeholder="Email address"
+          value={resetForm.email || forgotForm.email}
+          onChange={(e) =>
+            setResetForm({
+              ...resetForm,
               email: e.target.value,
             })
           }
           style={authInput(theme)}
         />
 
-        <button style={authButton()}>Send Reset OTP</button>
+        <input
+          placeholder="Enter OTP"
+          value={resetForm.otp}
+          onChange={(e) =>
+            setResetForm({
+              ...resetForm,
+              otp: e.target.value,
+            })
+          }
+          style={{
+            ...authInput(theme),
+            letterSpacing: 5,
+            fontWeight: 900,
+          }}
+        />
+
+        <input
+          placeholder="New password"
+          type="password"
+          value={resetForm.newPassword}
+          onChange={(e) =>
+            setResetForm({
+              ...resetForm,
+              newPassword: e.target.value,
+            })
+          }
+          style={authInput(theme)}
+        />
+
+        <button style={authButton()}>Reset Password</button>
 
         <p>
           <button
