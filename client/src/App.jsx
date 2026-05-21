@@ -1866,6 +1866,108 @@ function GlobalStyles() {
           border-radius: 13px;
         }
       }
+
+      /* Final phone overflow fixes */
+      .filterRow {
+        display: flex;
+        gap: 12px;
+        overflow-x: visible !important;
+        flex-wrap: wrap;
+        padding-bottom: 8px;
+        max-width: 100%;
+      }
+
+      .cartItemRow {
+        min-width: 0;
+      }
+
+      .cartItemInfo {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .cartItemActions {
+        flex-wrap: wrap;
+      }
+
+      @media (max-width: 700px) {
+        .filterRow {
+          gap: 8px !important;
+        }
+
+        .filterRow button {
+          flex: 1 1 calc(50% - 8px);
+          min-width: 0;
+          padding: 11px 10px !important;
+          font-size: 13px !important;
+          white-space: normal !important;
+          line-height: 1.2 !important;
+        }
+
+        .cartItemRow {
+          display: grid !important;
+          grid-template-columns: 82px 1fr !important;
+          gap: 12px !important;
+          align-items: start !important;
+          padding: 14px !important;
+        }
+
+        .cartItemRow img {
+          width: 82px !important;
+          height: 82px !important;
+        }
+
+        .cartItemPrice {
+          grid-column: 1 / -1;
+          justify-self: end;
+          font-size: 18px !important;
+          margin-top: -4px;
+        }
+
+        .cartItemActions {
+          gap: 8px !important;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .filterRow button {
+          flex: 1 1 100%;
+        }
+
+        .cartItemRow {
+          grid-template-columns: 70px 1fr !important;
+          padding: 12px !important;
+        }
+
+        .cartItemRow img {
+          width: 70px !important;
+          height: 70px !important;
+          border-radius: 12px !important;
+        }
+
+        .cartItemInfo h3 {
+          font-size: 16px !important;
+          line-height: 1.25 !important;
+        }
+
+        .cartItemInfo p {
+          font-size: 13px !important;
+          line-height: 1.35 !important;
+          margin: 7px 0 !important;
+        }
+      }
+
+      @media (max-width: 540px) {
+        .categorySection {
+          padding-left: 14px !important;
+          padding-right: 14px !important;
+        }
+
+        .categorySection h2 {
+          font-size: 26px !important;
+        }
+      }
+
     `}</style>
   );
 }
@@ -2248,6 +2350,7 @@ function HomePage({
       <Benefits theme={theme} />
 
       <section
+        className="categorySection"
         style={{
           maxWidth: 1500,
           margin: "0 auto",
@@ -2618,10 +2721,12 @@ function Benefits({ theme }) {
 function FilterRow({ list, selected, setSelected, theme }) {
   return (
     <div
+      className="filterRow"
       style={{
         display: "flex",
         gap: 12,
-        overflowX: "auto",
+        overflowX: "visible",
+        flexWrap: "wrap",
         paddingBottom: 8,
       }}
     >
@@ -3363,6 +3468,7 @@ function CartPage({
           return (
             <div
               key={key}
+              className="cartItemRow"
               style={{
                 padding: 18,
                 display: "flex",
@@ -3382,8 +3488,10 @@ function CartPage({
               />
 
               <div
+                className="cartItemInfo"
                 style={{
                   flex: 1,
+                  minWidth: 0,
                 }}
               >
                 <h3
@@ -3402,10 +3510,12 @@ function CartPage({
                 </p>
 
                 <div
+                  className="cartItemActions"
                   style={{
                     display: "flex",
                     gap: 12,
                     alignItems: "center",
+                    flexWrap: "wrap",
                   }}
                 >
                   <button
@@ -3438,6 +3548,7 @@ function CartPage({
               </div>
 
               <strong
+                className="cartItemPrice"
                 style={{
                   fontSize: 20,
                 }}
