@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
 
 dotenv.config();
 
@@ -15,20 +16,49 @@ const reviewRoutes = require("./routes/reviewRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 
+const {
+  generalLimiter,
+  authLimiter,
+  otpLimiter,
+  paymentLimiter,
+  sanitizeRequest,
+  blockSuspiciousUserAgents,
+  securityHeaders,
+} = require("./middleware/securityMiddleware");
+
 const app = express();
 
 // DATABASE
 connectDB();
 
-// MIDDLEWARES
-app.use(express.json({ limit: "15mb" }));
-app.use(express.urlencoded({ extended: true, limit: "15mb" }));
-app.use(cookieParser());
+// SECURITY FOUNDATION
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
 
 const allowedOrigins = [
   "http://localhost:5173",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        "default-src": ["'self'"],
+        "script-src": ["'self'"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "https:"],
+        "connect-src": ["'self'", ...allowedOrigins],
+        "frame-ancestors": ["'none'"],
+      },
+    },
+  })
+);
+
+app.use(securityHeaders);
+app.use(blockSuspiciousUserAgents);
 
 app.use(
   cors({
@@ -44,8 +74,17 @@ app.use(
       return callback(new Error(`CORS blocked this origin: ${origin}`));
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// MIDDLEWARES
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser());
+app.use(sanitizeRequest);
+app.use(generalLimiter);
 
 // API HOME
 app.get("/", (req, res) => {
@@ -98,9 +137,10 @@ app.get("/", (req, res) => {
       <body>
         <div class="card">
           <h1>WEARLANCE API Running 🚀</h1>
-          <p>Every Style ₹399 · Backend Connected</p>
+          <p>Every Style ₹399 · Backend Connected · Security Hardened</p>
           <code>Environment: ${process.env.NODE_ENV || "development"}</code>
           <code>Frontend URL: ${process.env.FRONTEND_URL || "http://localhost:5173"}</code>
+          <code>Security: Helmet + CORS allowlist + rate limiting + NoSQL key sanitization</code>
           <code>GET /api/products</code>
           <code>PUT /api/products/:id</code>
           <code>POST /api/orders</code>
@@ -118,12 +158,12 @@ app.get("/", (req, res) => {
 });
 
 // ROUTES
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, otpLimiter, authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
-app.use("/api/payments", paymentRoutes);
+app.use("/api/payments", paymentLimiter, paymentRoutes);
 app.use("/api/invoices", invoiceRoutes);
 
 // 404
@@ -138,9 +178,11 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err.message);
 
-  res.status(500).json({
+  const isProduction = process.env.NODE_ENV === "production";
+
+  res.status(err.statusCode || 500).json({
     success: false,
-    message: err.message || "Server error",
+    message: isProduction ? "Server error. Please try again." : err.message,
   });
 });
 
