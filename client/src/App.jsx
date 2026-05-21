@@ -10,6 +10,7 @@ const ORDER_API = `${API_BASE}/api/orders`;
 const PAYMENT_API = `${API_BASE}/api/payments`;
 const INVOICE_API = `${API_BASE}/api/invoices`;
 const REVIEW_API = `${API_BASE}/api/reviews`;
+const DELIVERY_API = `${API_BASE}/api/delivery`;
 
 const ADMIN_EMAILS = [
   "abhinauv22@gmail.com",
@@ -91,6 +92,19 @@ export default function App() {
   const [adminOrders, setAdminOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
+
+  const [deliveryApplication, setDeliveryApplication] = useState(null);
+  const [deliveryApplications, setDeliveryApplications] = useState([]);
+  const [deliveryLogs, setDeliveryLogs] = useState([]);
+  const [loadingDelivery, setLoadingDelivery] = useState(false);
+  const [deliveryForm, setDeliveryForm] = useState({
+    phone: "",
+    city: "",
+    state: "",
+    pincode: "",
+    vehicleType: "Bike",
+    experience: "",
+  });
 
   const [user, setUser] = useState(() =>
     safeJsonParse(localStorage.getItem("wearlanceUser"))
@@ -186,6 +200,14 @@ export default function App() {
       }));
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && token) {
+      fetchMyDeliveryApplication();
+    } else {
+      setDeliveryApplication(null);
+    }
+  }, [user, token]);
 
   const showToast = (message) => {
     setToast(message);
@@ -1228,6 +1250,159 @@ export default function App() {
     }
   };
 
+
+  const fetchMyDeliveryApplication = async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${DELIVERY_API}/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDeliveryApplication(data.application);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const applyAsDeliveryPartner = async (event) => {
+    event.preventDefault();
+
+    if (!token) {
+      showToast("Please login first");
+      setPage("login");
+      return;
+    }
+
+    if (!deliveryForm.phone || !deliveryForm.city) {
+      showToast("Phone and city are required");
+      return;
+    }
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${DELIVERY_API}/apply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(deliveryForm),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not submit delivery application");
+        return;
+      }
+
+      setDeliveryApplication(data.application);
+      showToast("Delivery partner application submitted");
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error during delivery application");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
+  const fetchDeliveryApplications = async () => {
+    if (!token || !isAdmin) return;
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${DELIVERY_API}/admin/applications`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDeliveryApplications(data.applications || []);
+      } else {
+        showToast(data.message || "Could not load delivery applications");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while loading delivery applications");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
+  const fetchDeliveryLogs = async () => {
+    if (!token || !isAdmin) return;
+
+    try {
+      const response = await fetch(`${DELIVERY_API}/admin/logs`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDeliveryLogs(data.logs || []);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const openDeliveryApplications = async () => {
+    await fetchDeliveryApplications();
+    await fetchDeliveryLogs();
+    setPage("deliveryApplications");
+  };
+
+  const updateDeliveryPartnerStatus = async (partnerId, action) => {
+    if (!token || !isAdmin) {
+      showToast("Admin access required");
+      return;
+    }
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${DELIVERY_API}/admin/${partnerId}/${action}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason: `Admin ${action}` }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not update delivery partner");
+        return;
+      }
+
+      showToast(data.message || "Delivery partner updated");
+      await fetchDeliveryApplications();
+      await fetchDeliveryLogs();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while updating delivery partner");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
   const openMyOrders = async () => {
     await fetchMyOrders();
     setPage("myOrders");
@@ -1271,6 +1446,7 @@ export default function App() {
         user={user}
         openMyOrders={openMyOrders}
         openAdminOrders={openAdminOrders}
+        openDeliveryApplications={openDeliveryApplications}
       />
 
       <MobileBottomBar
@@ -1280,6 +1456,7 @@ export default function App() {
         isAdmin={isAdmin}
         openMyOrders={openMyOrders}
         openAdminOrders={openAdminOrders}
+        openDeliveryApplications={openDeliveryApplications}
       />
 
       {page === "home" && (
@@ -1363,6 +1540,34 @@ export default function App() {
             fetchAdminOrders={fetchAdminOrders}
             updateOrderStatus={updateOrderStatus}
             downloadInvoice={downloadInvoice}
+          />
+        ) : (
+          <AccessDenied theme={theme} setPage={setPage} />
+        ))}
+
+
+      {page === "deliveryApply" && (
+        <DeliveryApplyPage
+          theme={theme}
+          deliveryForm={deliveryForm}
+          setDeliveryForm={setDeliveryForm}
+          deliveryApplication={deliveryApplication}
+          applyAsDeliveryPartner={applyAsDeliveryPartner}
+          loadingDelivery={loadingDelivery}
+          setPage={setPage}
+        />
+      )}
+
+      {page === "deliveryApplications" &&
+        (isAdmin ? (
+          <AdminDeliveryApplicationsPage
+            theme={theme}
+            applications={deliveryApplications}
+            logs={deliveryLogs}
+            loadingDelivery={loadingDelivery}
+            fetchDeliveryApplications={fetchDeliveryApplications}
+            fetchDeliveryLogs={fetchDeliveryLogs}
+            updateDeliveryPartnerStatus={updateDeliveryPartnerStatus}
           />
         ) : (
           <AccessDenied theme={theme} setPage={setPage} />
@@ -2090,6 +2295,13 @@ function GlobalStyles() {
         }
       }
 
+
+      @media (max-width: 900px) {
+        .deliveryApplicationRow {
+          grid-template-columns: 1fr !important;
+        }
+      }
+
     `}</style>
   );
 }
@@ -2342,6 +2554,7 @@ function SubNavbar({
   user,
   openMyOrders,
   openAdminOrders,
+  openDeliveryApplications,
 }) {
   const navItems = [
     {
@@ -2375,6 +2588,11 @@ function SubNavbar({
       label: "📦 My Orders",
       action: openMyOrders,
     });
+
+    navItems.push({
+      label: "🚚 Delivery Partner",
+      action: () => setPage("deliveryApply"),
+    });
   }
 
   if (isAdmin) {
@@ -2386,6 +2604,11 @@ function SubNavbar({
     navItems.push({
       label: "📋 Admin Orders",
       action: openAdminOrders,
+    });
+
+    navItems.push({
+      label: "🚚 Delivery Apps",
+      action: openDeliveryApplications,
     });
   }
 
@@ -2427,7 +2650,7 @@ function SubNavbar({
 }
 
 
-function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders }) {
+function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders, openDeliveryApplications }) {
   return (
     <div className="mobileBottomBar">
       <button onClick={() => setPage("home")}>
@@ -2445,9 +2668,9 @@ function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, open
         <span>{user ? "Orders" : "Login"}</span>
       </button>
 
-      <button onClick={isAdmin ? openAdminOrders : () => setPage("home")}>
-        <span>{isAdmin ? "⚙️" : "🔥"}</span>
-        <span>{isAdmin ? "Admin" : "Shop"}</span>
+      <button onClick={isAdmin ? openDeliveryApplications : user ? () => setPage("deliveryApply") : () => setPage("home")}>
+        <span>{isAdmin ? "🚚" : user ? "🛵" : "🔥"}</span>
+        <span>{isAdmin ? "Delivery" : user ? "Apply" : "Shop"}</span>
       </button>
     </div>
   );
@@ -4910,6 +5133,572 @@ function OrderCard({
       </div>
     </section>
   );
+}
+
+
+function DeliveryApplyPage({
+  theme,
+  deliveryForm,
+  setDeliveryForm,
+  deliveryApplication,
+  applyAsDeliveryPartner,
+  loadingDelivery,
+  setPage,
+}) {
+  const fieldStyle = {
+    width: "100%",
+    border: `1px solid ${theme.border}`,
+    background: theme.bg === "#07111f" ? "#111827" : "#f8fafc",
+    color: theme.text,
+    borderRadius: 14,
+    padding: "14px 15px",
+    outline: "none",
+  };
+
+  const statusColor = {
+    pending: theme.orange,
+    approved: theme.green,
+    rejected: theme.red,
+    suspended: theme.red,
+  };
+
+  return (
+    <main
+      style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: "38px 24px 96px",
+      }}
+    >
+      <button
+        onClick={() => setPage("home")}
+        style={{
+          border: "none",
+          background: "transparent",
+          color: theme.blue,
+          fontWeight: 950,
+          cursor: "pointer",
+          marginBottom: 18,
+        }}
+      >
+        ← Back to shopping
+      </button>
+
+      <div
+        className="authGrid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "0.85fr 1.15fr",
+          overflow: "hidden",
+          borderRadius: 28,
+          background: theme.panel,
+          border: `1px solid ${theme.border}`,
+          boxShadow:
+            theme.bg === "#07111f"
+              ? "0 14px 35px rgba(0,0,0,0.32)"
+              : "0 16px 40px rgba(15,23,42,0.10)",
+        }}
+      >
+        <div
+          style={{
+            padding: 42,
+            background: "linear-gradient(135deg,#111827,#2874f0,#ec4899)",
+            color: "#fff",
+          }}
+        >
+          <p
+            style={{
+              fontWeight: 950,
+              letterSpacing: 3,
+              fontSize: 12,
+              opacity: 0.9,
+            }}
+          >
+            WEARLANCE DELIVERY
+          </p>
+          <h1
+            style={{
+              fontSize: 44,
+              lineHeight: 1,
+              margin: "20px 0",
+              fontWeight: 950,
+            }}
+          >
+            Become a Delivery Partner
+          </h1>
+          <p
+            style={{
+              lineHeight: 1.7,
+              opacity: 0.92,
+              fontSize: 16,
+            }}
+          >
+            Apply once from your normal customer account. Admin approval is
+            required before delivery access is enabled.
+          </p>
+
+          <div
+            style={{
+              marginTop: 26,
+              background: "rgba(255,255,255,0.13)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 20,
+              padding: 18,
+              lineHeight: 1.8,
+              fontWeight: 850,
+            }}
+          >
+            🔐 Delivery accounts will later use password + OTP login, device
+            tracking, one active session, and action logs.
+          </div>
+        </div>
+
+        <div style={{ padding: 34 }}>
+          <h2 style={{ marginTop: 0, fontSize: 30 }}>Delivery Application</h2>
+
+          {deliveryApplication ? (
+            <div
+              style={{
+                border: `1px solid ${theme.border}`,
+                borderRadius: 22,
+                padding: 22,
+                background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+              }}
+            >
+              <p style={{ marginTop: 0, color: theme.muted, fontWeight: 850 }}>
+                Your application status
+              </p>
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  padding: "9px 16px",
+                  borderRadius: 999,
+                  background:
+                    statusColor[deliveryApplication.status] || theme.blue,
+                  color: "#fff",
+                  fontWeight: 950,
+                  textTransform: "capitalize",
+                  marginBottom: 18,
+                }}
+              >
+                {deliveryApplication.status}
+              </div>
+
+              <div style={{ display: "grid", gap: 10, color: theme.text }}>
+                <strong>Name: {deliveryApplication.name}</strong>
+                <span>Email: {deliveryApplication.email}</span>
+                <span>Phone: {deliveryApplication.phone}</span>
+                <span>
+                  Location: {deliveryApplication.city}
+                  {deliveryApplication.state
+                    ? `, ${deliveryApplication.state}`
+                    : ""}
+                </span>
+                <span>Vehicle: {deliveryApplication.vehicleType}</span>
+              </div>
+
+              <p
+                style={{
+                  color: theme.muted,
+                  marginBottom: 0,
+                  marginTop: 18,
+                  lineHeight: 1.6,
+                }}
+              >
+                {deliveryApplication.status === "pending" &&
+                  "Admin will review your application soon."}
+                {deliveryApplication.status === "approved" &&
+                  "Your delivery access is approved. Delivery dashboard will be added in the next phase."}
+                {deliveryApplication.status === "rejected" &&
+                  "Your application was rejected. Contact Wearlance admin for clarification."}
+                {deliveryApplication.status === "suspended" &&
+                  "Your delivery access is suspended by admin."}
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={applyAsDeliveryPartner} style={{ display: "grid", gap: 14 }}>
+              <input
+                style={fieldStyle}
+                value={deliveryForm.phone}
+                onChange={(e) =>
+                  setDeliveryForm((prev) => ({
+                    ...prev,
+                    phone: e.target.value,
+                  }))
+                }
+                placeholder="Phone number"
+              />
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 14,
+                }}
+              >
+                <input
+                  style={fieldStyle}
+                  value={deliveryForm.city}
+                  onChange={(e) =>
+                    setDeliveryForm((prev) => ({
+                      ...prev,
+                      city: e.target.value,
+                    }))
+                  }
+                  placeholder="City"
+                />
+
+                <input
+                  style={fieldStyle}
+                  value={deliveryForm.state}
+                  onChange={(e) =>
+                    setDeliveryForm((prev) => ({
+                      ...prev,
+                      state: e.target.value,
+                    }))
+                  }
+                  placeholder="State"
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 14,
+                }}
+              >
+                <input
+                  style={fieldStyle}
+                  value={deliveryForm.pincode}
+                  onChange={(e) =>
+                    setDeliveryForm((prev) => ({
+                      ...prev,
+                      pincode: e.target.value,
+                    }))
+                  }
+                  placeholder="Pincode"
+                />
+
+                <select
+                  style={fieldStyle}
+                  value={deliveryForm.vehicleType}
+                  onChange={(e) =>
+                    setDeliveryForm((prev) => ({
+                      ...prev,
+                      vehicleType: e.target.value,
+                    }))
+                  }
+                >
+                  <option>Bike</option>
+                  <option>Scooter</option>
+                  <option>Bicycle</option>
+                  <option>Car</option>
+                  <option>Walking</option>
+                  <option>Other</option>
+                </select>
+              </div>
+
+              <textarea
+                style={{
+                  ...fieldStyle,
+                  minHeight: 110,
+                  resize: "vertical",
+                }}
+                value={deliveryForm.experience}
+                onChange={(e) =>
+                  setDeliveryForm((prev) => ({
+                    ...prev,
+                    experience: e.target.value,
+                  }))
+                }
+                placeholder="Experience, local areas you can cover, availability..."
+              />
+
+              <button
+                disabled={loadingDelivery}
+                style={{
+                  border: "none",
+                  borderRadius: 15,
+                  padding: "15px 18px",
+                  background: loadingDelivery
+                    ? "#94a3b8"
+                    : "linear-gradient(135deg,#ff9900,#fb641b)",
+                  color: "#fff",
+                  fontWeight: 950,
+                  cursor: loadingDelivery ? "not-allowed" : "pointer",
+                }}
+              >
+                {loadingDelivery ? "Submitting..." : "Submit Application"}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function AdminDeliveryApplicationsPage({
+  theme,
+  applications,
+  logs,
+  loadingDelivery,
+  fetchDeliveryApplications,
+  fetchDeliveryLogs,
+  updateDeliveryPartnerStatus,
+}) {
+  const badgeColor = {
+    pending: theme.orange,
+    approved: theme.green,
+    rejected: theme.red,
+    suspended: theme.red,
+  };
+
+  return (
+    <main
+      style={{
+        maxWidth: 1400,
+        margin: "0 auto",
+        padding: "36px 24px 96px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "end",
+          gap: 16,
+          flexWrap: "wrap",
+          marginBottom: 24,
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0, fontSize: 34 }}>Delivery Applications</h1>
+          <p style={{ color: theme.muted, marginBottom: 0 }}>
+            Approve, reject, suspend, and audit delivery partner accounts.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={fetchDeliveryApplications}
+            style={{
+              border: `1px solid ${theme.border}`,
+              background: theme.panel,
+              color: theme.text,
+              borderRadius: 13,
+              padding: "12px 18px",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            Refresh Applications
+          </button>
+
+          <button
+            onClick={fetchDeliveryLogs}
+            style={{
+              border: "none",
+              background: theme.blue,
+              color: "#fff",
+              borderRadius: 13,
+              padding: "12px 18px",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            Refresh Logs
+          </button>
+        </div>
+      </div>
+
+      {loadingDelivery && <InfoBox theme={theme} text="Loading delivery data..." />}
+
+      {applications.length === 0 && !loadingDelivery && (
+        <InfoBox theme={theme} text="No delivery applications yet." />
+      )}
+
+      <section
+        style={{
+          display: "grid",
+          gap: 16,
+        }}
+      >
+        {applications.map((app) => (
+          <div
+            key={app._id}
+            style={{
+              background: theme.panel,
+              border: `1px solid ${theme.border}`,
+              borderRadius: 22,
+              padding: 20,
+              boxShadow:
+                theme.bg === "#07111f"
+                  ? "0 12px 28px rgba(0,0,0,0.25)"
+                  : "0 10px 26px rgba(15,23,42,0.07)",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.2fr 1fr auto",
+                gap: 18,
+                alignItems: "center",
+              }}
+              className="deliveryApplicationRow"
+            >
+              <div>
+                <h3 style={{ margin: "0 0 6px", fontSize: 21 }}>{app.name}</h3>
+                <p style={{ margin: 0, color: theme.muted }}>
+                  {app.email} · {app.phone}
+                </p>
+                <p style={{ margin: "8px 0 0", color: theme.muted }}>
+                  {app.city}
+                  {app.state ? `, ${app.state}` : ""} · {app.pincode || "No pincode"}
+                </p>
+              </div>
+
+              <div>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "8px 13px",
+                    borderRadius: 999,
+                    background: badgeColor[app.status] || theme.blue,
+                    color: "#fff",
+                    fontWeight: 950,
+                    textTransform: "capitalize",
+                    marginBottom: 10,
+                  }}
+                >
+                  {app.status}
+                </span>
+                <p style={{ margin: 0, color: theme.muted }}>
+                  Vehicle: <strong>{app.vehicleType}</strong>
+                </p>
+                <p style={{ margin: "6px 0 0", color: theme.muted }}>
+                  Delivered: {app.totalDelivered || 0} / Assigned: {app.totalAssigned || 0}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  minWidth: 170,
+                }}
+              >
+                {app.status !== "approved" && (
+                  <button
+                    onClick={() => updateDeliveryPartnerStatus(app._id, "approve")}
+                    style={deliveryActionButton(theme.green)}
+                  >
+                    Approve
+                  </button>
+                )}
+
+                {app.status !== "rejected" && (
+                  <button
+                    onClick={() => updateDeliveryPartnerStatus(app._id, "reject")}
+                    style={deliveryActionButton(theme.red)}
+                  >
+                    Reject
+                  </button>
+                )}
+
+                {app.status !== "suspended" && (
+                  <button
+                    onClick={() => updateDeliveryPartnerStatus(app._id, "suspend")}
+                    style={deliveryActionButton(theme.orange2)}
+                  >
+                    Suspend
+                  </button>
+                )}
+
+                {app.status === "suspended" && (
+                  <button
+                    onClick={() => updateDeliveryPartnerStatus(app._id, "reactivate")}
+                    style={deliveryActionButton(theme.blue)}
+                  >
+                    Reactivate
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {app.experience && (
+              <p
+                style={{
+                  margin: "14px 0 0",
+                  color: theme.muted,
+                  lineHeight: 1.6,
+                }}
+              >
+                <strong>Experience:</strong> {app.experience}
+              </p>
+            )}
+          </div>
+        ))}
+      </section>
+
+      <section
+        style={{
+          marginTop: 34,
+          background: theme.panel,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 24,
+          padding: 22,
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Delivery Security Logs</h2>
+
+        {logs.length === 0 ? (
+          <p style={{ color: theme.muted }}>No delivery logs yet.</p>
+        ) : (
+          <div style={{ display: "grid", gap: 12 }}>
+            {logs.slice(0, 25).map((log) => (
+              <div
+                key={log._id}
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 16,
+                  padding: 14,
+                  background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+                }}
+              >
+                <strong>{log.action}</strong>
+                <p style={{ margin: "6px 0", color: theme.muted }}>
+                  Actor: {log.actor?.name || "Unknown"} · {log.actor?.email || ""}
+                </p>
+                <p style={{ margin: "6px 0", color: theme.muted }}>
+                  Result: {log.result} · {new Date(log.createdAt).toLocaleString()}
+                </p>
+                {log.note && (
+                  <p style={{ margin: "6px 0 0", color: theme.muted }}>
+                    Note: {log.note}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function deliveryActionButton(background) {
+  return {
+    border: "none",
+    borderRadius: 12,
+    padding: "10px 13px",
+    background,
+    color: "#fff",
+    fontWeight: 950,
+    cursor: "pointer",
+  };
 }
 
 function AdminPage({
