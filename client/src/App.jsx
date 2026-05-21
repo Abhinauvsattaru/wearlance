@@ -145,6 +145,8 @@ export default function App() {
     newPassword: "",
   });
 
+  const [resetOtpSent, setResetOtpSent] = useState(false);
+
   const [checkoutForm, setCheckoutForm] = useState({
     fullName: user?.name || "",
     phone: "",
@@ -493,6 +495,7 @@ export default function App() {
       ...prev,
       email: cleanEmail,
     }));
+    setResetOtpSent(false);
 
     try {
       const response = await fetch(`${AUTH_API}/forgot-password`, {
@@ -518,8 +521,8 @@ export default function App() {
         newPassword: "",
       });
 
+      setResetOtpSent(true);
       showToast("Password reset OTP sent. Check Inbox/Spam.");
-      setPage("resetPassword");
     } catch (error) {
       console.error(error);
       showToast("Forgot password failed");
@@ -550,6 +553,7 @@ export default function App() {
         return;
       }
 
+      setResetOtpSent(false);
       showToast("Password reset successful. Login now.");
       setLoginForm({
         email: resetForm.email,
@@ -1643,6 +1647,8 @@ export default function App() {
           resetForm={resetForm}
           setResetForm={setResetForm}
           resetPassword={resetPassword}
+          resetOtpSent={resetOtpSent}
+          setResetOtpSent={setResetOtpSent}
           setPage={setPage}
         />
       )}
@@ -6620,130 +6626,239 @@ function ForgotPasswordPage({
   resetForm,
   setResetForm,
   resetPassword,
+  resetOtpSent,
+  setResetOtpSent,
   setPage,
 }) {
+  const canReset = Boolean(resetForm.email && resetForm.otp && resetForm.newPassword);
+
   return (
     <AuthLayout
       theme={theme}
-      title="Forgot Password"
-      subtitle="Send an OTP to your email, then enter OTP and new password on the same page."
+      title="Reset Password"
+      subtitle="Verify your email with OTP and create a new password securely."
     >
-      <form onSubmit={forgotPassword}>
+      <div>
         <h2
           style={{
             fontSize: 34,
             margin: 0,
           }}
         >
-          Reset Request
+          Forgot Password
         </h2>
 
         <p
           style={{
             color: theme.muted,
-            lineHeight: 1.6,
-            marginBottom: 0,
+            lineHeight: 1.65,
+            margin: "10px 0 0",
           }}
         >
-          Enter the email used for your Wearlance account. After clicking send,
-          check Inbox, Updates, Promotions, and Spam.
+          First send the reset OTP to your registered email. Then enter the OTP
+          and your new password below.
         </p>
 
-        <input
-          placeholder="Email address"
-          value={forgotForm.email}
-          onChange={(e) => {
-            const email = e.target.value;
-
-            setForgotForm({
-              ...forgotForm,
-              email,
-            });
-
-            setResetForm((prev) => ({
-              ...prev,
-              email,
-            }));
-          }}
-          style={authInput(theme)}
-        />
-
-        <button style={authButton()}>Send Reset OTP</button>
-      </form>
-
-      <div
-        style={{
-          margin: "24px 0",
-          height: 1,
-          background: theme.border,
-        }}
-      />
-
-      <form onSubmit={resetPassword}>
-        <h3
+        <form
+          onSubmit={forgotPassword}
           style={{
-            fontSize: 24,
-            margin: "0 0 6px",
+            marginTop: 18,
+            border: `1px solid ${theme.border}`,
+            background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+            borderRadius: 22,
+            padding: 18,
           }}
         >
-          Enter OTP & New Password
-        </h3>
+          <label
+            style={{
+              display: "block",
+              fontWeight: 950,
+              marginBottom: 8,
+            }}
+          >
+            Registered email
+          </label>
 
-        <p
+          <input
+            placeholder="example@gmail.com"
+            value={forgotForm.email}
+            onChange={(e) => {
+              const email = e.target.value;
+
+              setForgotForm({
+                ...forgotForm,
+                email,
+              });
+
+              setResetForm((prev) => ({
+                ...prev,
+                email,
+              }));
+            }}
+            style={{
+              ...authInput(theme),
+              marginTop: 0,
+            }}
+          />
+
+          <button style={authButton()}>
+            {resetOtpSent ? "Resend Reset OTP" : "Send Reset OTP"}
+          </button>
+
+          {resetOtpSent && (
+            <div
+              style={{
+                marginTop: 14,
+                borderRadius: 16,
+                padding: 14,
+                background: theme.bg === "#07111f" ? "#052e16" : "#ecfdf5",
+                color: theme.bg === "#07111f" ? "#bbf7d0" : "#166534",
+                fontWeight: 850,
+                lineHeight: 1.55,
+              }}
+            >
+              ✅ OTP request sent. Check Inbox, Spam, Promotions, and Updates.
+              If it does not arrive in 1 minute, click Resend Reset OTP.
+            </div>
+          )}
+        </form>
+
+        <div
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            margin: "22px 0",
             color: theme.muted,
-            marginTop: 0,
-            lineHeight: 1.6,
+            fontWeight: 850,
           }}
         >
-          Use this section after you receive the OTP. This also works if you
-          already requested an OTP earlier.
-        </p>
+          <span style={{ height: 1, background: theme.border, flex: 1 }} />
+          <span>Enter OTP</span>
+          <span style={{ height: 1, background: theme.border, flex: 1 }} />
+        </div>
 
-        <input
-          placeholder="Email address"
-          value={resetForm.email || forgotForm.email}
-          onChange={(e) =>
-            setResetForm({
-              ...resetForm,
-              email: e.target.value,
-            })
-          }
-          style={authInput(theme)}
-        />
-
-        <input
-          placeholder="Enter OTP"
-          value={resetForm.otp}
-          onChange={(e) =>
-            setResetForm({
-              ...resetForm,
-              otp: e.target.value,
-            })
-          }
+        <form
+          onSubmit={resetPassword}
           style={{
-            ...authInput(theme),
-            letterSpacing: 5,
-            fontWeight: 900,
+            border: `1px solid ${theme.border}`,
+            background: theme.panel,
+            borderRadius: 22,
+            padding: 18,
           }}
-        />
+        >
+          <label
+            style={{
+              display: "block",
+              fontWeight: 950,
+              marginBottom: 8,
+            }}
+          >
+            Email
+          </label>
 
-        <input
-          placeholder="New password"
-          type="password"
-          value={resetForm.newPassword}
-          onChange={(e) =>
-            setResetForm({
-              ...resetForm,
-              newPassword: e.target.value,
-            })
-          }
-          style={authInput(theme)}
-        />
+          <input
+            placeholder="Email address"
+            value={resetForm.email || forgotForm.email}
+            onChange={(e) =>
+              setResetForm({
+                ...resetForm,
+                email: e.target.value,
+              })
+            }
+            style={{
+              ...authInput(theme),
+              marginTop: 0,
+            }}
+          />
 
-        <button style={authButton()}>Reset Password</button>
+          <label
+            style={{
+              display: "block",
+              fontWeight: 950,
+              marginTop: 14,
+              marginBottom: 8,
+            }}
+          >
+            OTP code
+          </label>
 
-        <p>
+          <input
+            placeholder="6-digit OTP"
+            value={resetForm.otp}
+            onChange={(e) =>
+              setResetForm({
+                ...resetForm,
+                otp: e.target.value.replace(/\D/g, "").slice(0, 6),
+              })
+            }
+            style={{
+              ...authInput(theme),
+              marginTop: 0,
+              letterSpacing: 6,
+              fontWeight: 950,
+              textAlign: "center",
+            }}
+            inputMode="numeric"
+            maxLength={6}
+          />
+
+          <label
+            style={{
+              display: "block",
+              fontWeight: 950,
+              marginTop: 14,
+              marginBottom: 8,
+            }}
+          >
+            New password
+          </label>
+
+          <input
+            placeholder="Create new password"
+            type="password"
+            value={resetForm.newPassword}
+            onChange={(e) =>
+              setResetForm({
+                ...resetForm,
+                newPassword: e.target.value,
+              })
+            }
+            style={{
+              ...authInput(theme),
+              marginTop: 0,
+            }}
+          />
+
+          <button
+            disabled={!canReset}
+            style={{
+              ...authButton(),
+              opacity: canReset ? 1 : 0.65,
+              cursor: canReset ? "pointer" : "not-allowed",
+            }}
+          >
+            Reset Password
+          </button>
+        </form>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            marginTop: 18,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setResetOtpSent(true)}
+            style={linkButton(theme)}
+          >
+            I already have OTP
+          </button>
+
           <button
             type="button"
             onClick={() => setPage("login")}
@@ -6751,8 +6866,8 @@ function ForgotPasswordPage({
           >
             Back to login
           </button>
-        </p>
-      </form>
+        </div>
+      </div>
     </AuthLayout>
   );
 }
