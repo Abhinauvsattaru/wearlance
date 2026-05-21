@@ -1273,6 +1273,15 @@ export default function App() {
         openAdminOrders={openAdminOrders}
       />
 
+      <MobileBottomBar
+        setPage={setPage}
+        cartCount={cartCount}
+        user={user}
+        isAdmin={isAdmin}
+        openMyOrders={openMyOrders}
+        openAdminOrders={openAdminOrders}
+      />
+
       {page === "home" && (
         <HomePage
           theme={theme}
@@ -1445,8 +1454,22 @@ function GlobalStyles() {
         box-sizing: border-box;
       }
 
+      html {
+        width: 100%;
+        overflow-x: hidden;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        scroll-behavior: smooth;
+      }
+
       body {
         margin: 0;
+        width: 100%;
+        overflow-x: hidden;
+      }
+
+      img {
+        max-width: 100%;
       }
 
       button,
@@ -1454,10 +1477,19 @@ function GlobalStyles() {
       select,
       textarea {
         font-family: inherit;
+        font-size: 16px;
+      }
+
+      input,
+      select,
+      textarea {
+        min-height: 44px;
       }
 
       button {
         transition: 0.18s ease;
+        min-height: 42px;
+        touch-action: manipulation;
       }
 
       button:hover {
@@ -1480,6 +1512,10 @@ function GlobalStyles() {
         display: flex;
       }
 
+      .mobileBottomBar {
+        display: none;
+      }
+
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -1490,7 +1526,7 @@ function GlobalStyles() {
         border-radius: 999px;
       }
 
-      @media (max-width: 900px) {
+      @media (max-width: 1100px) {
         .heroGrid,
         .adminGrid,
         .cartGrid,
@@ -1500,22 +1536,334 @@ function GlobalStyles() {
           grid-template-columns: 1fr !important;
         }
 
+        .adminGrid > *,
+        .cartGrid > *,
+        .checkoutGrid > *,
+        .detailsGrid > *,
+        .authGrid > * {
+          min-width: 0 !important;
+        }
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding-bottom: 78px;
+        }
+
         .topNavInner {
           flex-wrap: wrap;
+          padding: 12px 14px !important;
+          gap: 10px !important;
+        }
+
+        .topNavInner h1 {
+          font-size: 24px !important;
+          line-height: 1 !important;
+        }
+
+        .topNavInner p {
+          font-size: 8px !important;
+          letter-spacing: 1.4px !important;
         }
 
         .navSearch {
           order: 10;
           width: 100%;
           max-width: none !important;
+          flex: 0 0 100% !important;
+          border-radius: 12px !important;
+        }
+
+        .navSearch select {
+          max-width: 92px !important;
+          padding: 0 8px !important;
+          font-size: 13px !important;
+        }
+
+        .navSearch input {
+          min-width: 0 !important;
+          padding: 12px 10px !important;
+          font-size: 15px !important;
+        }
+
+        .navSearch button {
+          padding: 0 15px !important;
         }
 
         .hideMobile {
           display: none !important;
         }
 
+        .mobileBottomBar {
+          position: fixed;
+          left: 10px;
+          right: 10px;
+          bottom: calc(10px + env(safe-area-inset-bottom));
+          z-index: 100;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          padding: 9px;
+          border-radius: 22px;
+          background: rgba(17, 24, 39, 0.94);
+          color: #fff;
+          box-shadow: 0 18px 40px rgba(0,0,0,0.28);
+          backdrop-filter: blur(16px);
+        }
+
+        .mobileBottomBar button {
+          min-height: 48px;
+          border: none;
+          border-radius: 15px;
+          background: rgba(255,255,255,0.08);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 900;
+          cursor: pointer;
+          display: grid;
+          place-items: center;
+          gap: 2px;
+          padding: 5px;
+        }
+
+        .mobileBottomBar span {
+          display: block;
+          line-height: 1.1;
+        }
+
         .heroImage {
-          min-height: 260px !important;
+          min-height: 245px !important;
+        }
+
+        main,
+        section {
+          max-width: 100% !important;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .heroGrid {
+          border-radius: 22px !important;
+          min-height: auto !important;
+        }
+
+        .heroGrid > div:first-child {
+          padding: 34px 22px !important;
+        }
+
+        .heroGrid h1 {
+          font-size: 42px !important;
+          letter-spacing: -1px !important;
+        }
+
+        .heroGrid p {
+          font-size: 16px !important;
+          line-height: 1.55 !important;
+        }
+
+        .heroGrid button {
+          padding: 13px 18px !important;
+          font-size: 14px !important;
+        }
+
+        .detailsGrid img {
+          height: 390px !important;
+        }
+
+        .detailsGrid > div:last-child {
+          padding: 22px !important;
+        }
+
+        .detailsGrid h1 {
+          font-size: 30px !important;
+        }
+
+        .checkoutGrid,
+        .cartGrid,
+        .adminGrid,
+        .authGrid,
+        .detailsGrid {
+          gap: 16px !important;
+        }
+
+        .authGrid {
+          border-radius: 22px !important;
+        }
+
+        .authGrid > div {
+          padding: 28px 22px !important;
+        }
+
+        .authGrid h1 {
+          font-size: 34px !important;
+        }
+
+        .authGrid h2 {
+          font-size: 28px !important;
+        }
+
+        .cartGrid,
+        .checkoutGrid,
+        main {
+          padding-left: 14px !important;
+          padding-right: 14px !important;
+        }
+      }
+
+      @media (max-width: 540px) {
+        .topNavInner {
+          align-items: center !important;
+        }
+
+        .topNavInner > button {
+          padding: 8px 9px !important;
+          font-size: 13px !important;
+          border-radius: 10px !important;
+          min-height: 38px !important;
+        }
+
+        nav > div {
+          padding: 10px 14px !important;
+          gap: 16px !important;
+          font-size: 13px !important;
+        }
+
+        .heroGrid h1 {
+          font-size: 36px !important;
+        }
+
+        .heroGrid > div:first-child {
+          padding: 28px 18px !important;
+        }
+
+        .heroGrid > div:first-child > div {
+          flex-wrap: wrap !important;
+        }
+
+        .heroImage {
+          min-height: 220px !important;
+        }
+
+        section[style*="grid-template-columns: repeat(auto-fit"] {
+          grid-template-columns: 1fr !important;
+        }
+
+        div[style*="repeat(auto-fill, minmax(240px"] {
+          grid-template-columns: 1fr !important;
+        }
+
+        .hoverLift:hover {
+          transform: none;
+        }
+
+        .cartGrid section > div {
+          min-width: 0 !important;
+        }
+
+        .cartGrid section > div[style*="display: flex"] {
+          flex-wrap: wrap !important;
+        }
+
+        .checkoutGrid div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+          grid-template-columns: 1fr !important;
+        }
+
+        .adminGrid input,
+        .adminGrid select,
+        .adminGrid textarea,
+        .checkoutGrid input,
+        .checkoutGrid select,
+        .checkoutGrid textarea {
+          width: 100% !important;
+        }
+
+        .adminGrid div[style*="display: flex"],
+        .checkoutGrid div[style*="display: flex"] {
+          flex-wrap: wrap !important;
+        }
+
+        .mobileBottomBar {
+          left: 8px;
+          right: 8px;
+          bottom: calc(8px + env(safe-area-inset-bottom));
+        }
+      }
+
+      @media (max-width: 430px) {
+        .topNavInner {
+          padding: 10px 10px !important;
+          gap: 8px !important;
+        }
+
+        .topNavInner h1 {
+          font-size: 21px !important;
+        }
+
+        .navSearch {
+          border-radius: 10px !important;
+        }
+
+        .navSearch select {
+          display: none !important;
+        }
+
+        .navSearch input {
+          padding: 11px 9px !important;
+          font-size: 14px !important;
+        }
+
+        .navSearch button {
+          padding: 0 13px !important;
+        }
+
+        .heroGrid {
+          border-radius: 18px !important;
+        }
+
+        .heroGrid h1 {
+          font-size: 32px !important;
+        }
+
+        .heroGrid p {
+          font-size: 14px !important;
+        }
+
+        .detailsGrid img {
+          height: 330px !important;
+        }
+
+        .detailsGrid h1 {
+          font-size: 26px !important;
+        }
+
+        .detailsGrid strong[style*="font-size: 44"] {
+          font-size: 34px !important;
+        }
+
+        .mobileBottomBar button {
+          min-height: 45px;
+          font-size: 10px;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .topNavInner > button {
+          font-size: 12px !important;
+          padding: 7px 8px !important;
+        }
+
+        .heroGrid h1 {
+          font-size: 29px !important;
+        }
+
+        .mobileBottomBar {
+          gap: 6px;
+          padding: 7px;
+        }
+
+        .mobileBottomBar button {
+          min-height: 42px;
+          border-radius: 13px;
         }
       }
     `}</style>
@@ -1850,6 +2198,33 @@ function SubNavbar({
         ))}
       </div>
     </nav>
+  );
+}
+
+
+function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders }) {
+  return (
+    <div className="mobileBottomBar">
+      <button onClick={() => setPage("home")}>
+        <span>🏠</span>
+        <span>Home</span>
+      </button>
+
+      <button onClick={() => setPage("cart")}>
+        <span>🛒</span>
+        <span>Cart {cartCount > 0 ? `(${cartCount})` : ""}</span>
+      </button>
+
+      <button onClick={user ? openMyOrders : () => setPage("login")}>
+        <span>{user ? "📦" : "🔐"}</span>
+        <span>{user ? "Orders" : "Login"}</span>
+      </button>
+
+      <button onClick={isAdmin ? openAdminOrders : () => setPage("home")}>
+        <span>{isAdmin ? "⚙️" : "🔥"}</span>
+        <span>{isAdmin ? "Admin" : "Shop"}</span>
+      </button>
+    </div>
   );
 }
 
