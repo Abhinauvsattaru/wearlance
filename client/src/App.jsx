@@ -1516,6 +1516,28 @@ function GlobalStyles() {
         display: none;
       }
 
+      .filterRow {
+        display: flex;
+        gap: 12px;
+        overflow-x: visible !important;
+        flex-wrap: wrap;
+        padding-bottom: 8px;
+        max-width: 100%;
+      }
+
+      .cartItemRow {
+        min-width: 0;
+      }
+
+      .cartItemInfo {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .cartItemActions {
+        flex-wrap: wrap;
+      }
+
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -1545,49 +1567,66 @@ function GlobalStyles() {
         }
       }
 
-      @media (max-width: 900px) {
+      @media (max-width: 700px) {
         body {
-          padding-bottom: 78px;
+          padding-bottom: 82px;
+          background: #f3f6fb;
+        }
+
+        .subNav {
+          display: none !important;
         }
 
         .topNavInner {
-          flex-wrap: wrap;
-          padding: 12px 14px !important;
+          display: grid !important;
+          grid-template-columns: 1fr auto auto !important;
+          align-items: center !important;
+          padding: 10px 12px !important;
           gap: 10px !important;
         }
 
-        .topNavInner h1 {
+        .brandBlock h1 {
           font-size: 24px !important;
           line-height: 1 !important;
+          letter-spacing: -0.6px !important;
         }
 
-        .topNavInner p {
+        .brandBlock p {
           font-size: 8px !important;
-          letter-spacing: 1.4px !important;
+          letter-spacing: 1.2px !important;
         }
 
-        .navSearch {
-          order: 10;
-          width: 100%;
-          max-width: none !important;
-          flex: 0 0 100% !important;
+        .topNavInner > button {
+          justify-self: end;
+          padding: 9px 11px !important;
+          font-size: 13px !important;
           border-radius: 12px !important;
         }
 
+        .navSearch {
+          grid-column: 1 / -1;
+          order: initial !important;
+          width: 100% !important;
+          max-width: none !important;
+          flex: none !important;
+          border-radius: 14px !important;
+          box-shadow: 0 8px 20px rgba(15,23,42,0.09);
+        }
+
         .navSearch select {
-          max-width: 92px !important;
-          padding: 0 8px !important;
-          font-size: 13px !important;
+          display: none !important;
         }
 
         .navSearch input {
+          height: 46px !important;
+          padding: 0 13px !important;
+          font-size: 14px !important;
           min-width: 0 !important;
-          padding: 12px 10px !important;
-          font-size: 15px !important;
         }
 
         .navSearch button {
-          padding: 0 15px !important;
+          padding: 0 16px !important;
+          min-width: 52px !important;
         }
 
         .hideMobile {
@@ -1631,59 +1670,251 @@ function GlobalStyles() {
           line-height: 1.1;
         }
 
-        .heroImage {
-          min-height: 245px !important;
+        .heroSection {
+          padding: 14px 12px 6px !important;
         }
 
-        main,
-        section {
-          max-width: 100% !important;
-        }
-      }
-
-      @media (max-width: 700px) {
         .heroGrid {
-          border-radius: 22px !important;
+          grid-template-columns: 1fr !important;
+          border-radius: 24px !important;
           min-height: auto !important;
+          box-shadow: 0 12px 32px rgba(15,23,42,0.12) !important;
         }
 
-        .heroGrid > div:first-child {
-          padding: 34px 22px !important;
+        .heroCopy {
+          padding: 28px 22px 22px !important;
         }
 
-        .heroGrid h1 {
+        .heroCopy > p:first-child {
+          font-size: 10px !important;
+          letter-spacing: 2.4px !important;
+          margin-bottom: 12px !important;
+        }
+
+        .heroCopy h1 {
           font-size: 42px !important;
-          letter-spacing: -1px !important;
+          line-height: 0.98 !important;
+          letter-spacing: -1.2px !important;
         }
 
-        .heroGrid p {
-          font-size: 16px !important;
-          line-height: 1.55 !important;
+        .heroCopy h1 br {
+          display: none;
         }
 
-        .heroGrid button {
-          padding: 13px 18px !important;
+        .heroCopy > p:not(:first-child) {
           font-size: 14px !important;
+          line-height: 1.55 !important;
+          margin-top: 14px !important;
+        }
+
+        .heroCopy button {
+          width: 100%;
+          justify-content: center;
+          padding: 13px 18px !important;
+          border-radius: 14px !important;
+        }
+
+        .heroImage {
+          min-height: 178px !important;
+          background-position: center 45% !important;
+        }
+
+        .heroPriceCard {
+          right: 14px !important;
+          bottom: 14px !important;
+          border-radius: 16px !important;
+          padding: 12px 15px !important;
+        }
+
+        .heroPriceCard h3 {
+          font-size: 24px !important;
+        }
+
+        .heroPriceCard p {
+          font-size: 11px !important;
+        }
+
+        .benefitsGrid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          padding: 14px 12px !important;
+          gap: 10px !important;
+        }
+
+        .benefitCard {
+          padding: 13px !important;
+          border-radius: 18px !important;
+          gap: 8px !important;
+          min-height: 82px !important;
+          align-items: center !important;
+        }
+
+        .benefitCard span {
+          font-size: 23px !important;
+        }
+
+        .benefitCard h3 {
+          font-size: 13px !important;
+          line-height: 1.2 !important;
+        }
+
+        .benefitCard p {
+          font-size: 11px !important;
+          line-height: 1.25 !important;
+        }
+
+        .categorySection {
+          margin: 8px 12px 0 !important;
+          padding: 16px !important;
+          background: rgba(255,255,255,0.78);
+          border: 1px solid rgba(226,232,240,0.9);
+          border-radius: 22px;
+          box-shadow: 0 10px 24px rgba(15,23,42,0.06);
+        }
+
+        .categorySection h2 {
+          font-size: 22px !important;
+          margin-bottom: 12px !important;
+        }
+
+        .filterRow {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 8px !important;
+          padding-bottom: 0 !important;
+        }
+
+        .filterRow button {
+          width: 100%;
+          min-height: 40px !important;
+          padding: 10px 8px !important;
+          border-radius: 999px !important;
+          font-size: 12px !important;
+          line-height: 1.15 !important;
+          white-space: normal !important;
+        }
+
+        .productSection {
+          padding: 22px 12px 92px !important;
+        }
+
+        .sectionHeader {
+          align-items: flex-start !important;
+          gap: 14px !important;
+          margin-bottom: 18px !important;
+        }
+
+        .sectionHeader h2 {
+          font-size: 27px !important;
+        }
+
+        .sectionHeader p {
+          font-size: 13px !important;
+          line-height: 1.45 !important;
+        }
+
+        .sectionHeader > div:last-child {
+          width: 100%;
+          display: grid !important;
+          grid-template-columns: 1fr;
+        }
+
+        .sectionHeader button {
+          width: 100%;
+        }
+
+        .productsGrid {
+          grid-template-columns: 1fr !important;
+          gap: 16px !important;
+        }
+
+        .productCard {
+          border-radius: 22px !important;
+          box-shadow: 0 12px 28px rgba(15,23,42,0.10) !important;
+        }
+
+        .productCardImage {
+          height: 255px !important;
+          object-fit: contain !important;
+          background: #f8fafc !important;
+          padding: 10px !important;
+        }
+
+        .productCardBody {
+          padding: 15px !important;
+        }
+
+        .productCardBody h3 {
+          font-size: 17px !important;
+          margin: 6px 0 !important;
+        }
+
+        .productPriceRow {
+          align-items: center !important;
+          flex-wrap: wrap !important;
+          margin-bottom: 10px !important;
+        }
+
+        .productPriceRow strong {
+          font-size: 24px !important;
         }
 
         .detailsGrid img {
-          height: 390px !important;
+          height: 330px !important;
+          object-fit: contain !important;
+          background: #f8fafc !important;
         }
 
-        .detailsGrid > div:last-child {
-          padding: 22px !important;
-        }
-
-        .detailsGrid h1 {
-          font-size: 30px !important;
-        }
-
-        .checkoutGrid,
         .cartGrid,
+        .checkoutGrid,
         .adminGrid,
         .authGrid,
         .detailsGrid {
           gap: 16px !important;
+        }
+
+        .cartGrid,
+        .checkoutGrid,
+        .adminGrid,
+        .authGrid,
+        .detailsGrid,
+        main {
+          padding-left: 12px !important;
+          padding-right: 12px !important;
+        }
+
+        .cartItemRow {
+          display: grid !important;
+          grid-template-columns: 82px 1fr !important;
+          gap: 12px !important;
+          align-items: start !important;
+          padding: 14px !important;
+        }
+
+        .cartItemRow img {
+          width: 82px !important;
+          height: 82px !important;
+        }
+
+        .cartItemInfo h3 {
+          font-size: 16px !important;
+          line-height: 1.25 !important;
+        }
+
+        .cartItemInfo p {
+          font-size: 13px !important;
+          line-height: 1.35 !important;
+          margin: 7px 0 !important;
+        }
+
+        .cartItemActions {
+          gap: 8px !important;
+        }
+
+        .cartItemPrice {
+          grid-column: 1 / -1;
+          justify-self: end;
+          font-size: 18px !important;
+          margin-top: -4px;
         }
 
         .authGrid {
@@ -1702,142 +1933,59 @@ function GlobalStyles() {
           font-size: 28px !important;
         }
 
-        .cartGrid,
-        .checkoutGrid,
-        main {
-          padding-left: 14px !important;
-          padding-right: 14px !important;
-        }
-      }
-
-      @media (max-width: 540px) {
-        .topNavInner {
-          align-items: center !important;
-        }
-
-        .topNavInner > button {
-          padding: 8px 9px !important;
-          font-size: 13px !important;
-          border-radius: 10px !important;
-          min-height: 38px !important;
-        }
-
-        nav > div {
-          padding: 10px 14px !important;
-          gap: 16px !important;
-          font-size: 13px !important;
-        }
-
-        .heroGrid h1 {
-          font-size: 36px !important;
-        }
-
-        .heroGrid > div:first-child {
-          padding: 28px 18px !important;
-        }
-
-        .heroGrid > div:first-child > div {
-          flex-wrap: wrap !important;
-        }
-
-        .heroImage {
-          min-height: 220px !important;
-        }
-
-        section[style*="grid-template-columns: repeat(auto-fit"] {
-          grid-template-columns: 1fr !important;
-        }
-
-        div[style*="repeat(auto-fill, minmax(240px"] {
-          grid-template-columns: 1fr !important;
-        }
-
         .hoverLift:hover {
           transform: none;
         }
+      }
 
-        .cartGrid section > div {
-          min-width: 0 !important;
+      @media (max-width: 430px) {
+        .topNavInner {
+          grid-template-columns: 1fr auto auto !important;
+          padding: 9px 10px !important;
+          gap: 8px !important;
         }
 
-        .cartGrid section > div[style*="display: flex"] {
-          flex-wrap: wrap !important;
+        .brandBlock h1 {
+          font-size: 21px !important;
         }
 
-        .checkoutGrid div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+        .brandBlock p {
+          font-size: 7px !important;
+        }
+
+        .heroCopy h1 {
+          font-size: 35px !important;
+        }
+
+        .heroCopy {
+          padding: 24px 18px 20px !important;
+        }
+
+        .heroImage {
+          min-height: 165px !important;
+        }
+
+        .benefitsGrid {
           grid-template-columns: 1fr !important;
         }
 
-        .adminGrid input,
-        .adminGrid select,
-        .adminGrid textarea,
-        .checkoutGrid input,
-        .checkoutGrid select,
-        .checkoutGrid textarea {
-          width: 100% !important;
+        .benefitCard {
+          min-height: auto !important;
+          padding: 14px !important;
         }
 
-        .adminGrid div[style*="display: flex"],
-        .checkoutGrid div[style*="display: flex"] {
-          flex-wrap: wrap !important;
+        .filterRow {
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        .productCardImage {
+          height: 235px !important;
         }
 
         .mobileBottomBar {
           left: 8px;
           right: 8px;
           bottom: calc(8px + env(safe-area-inset-bottom));
-        }
-      }
-
-      @media (max-width: 430px) {
-        .topNavInner {
-          padding: 10px 10px !important;
-          gap: 8px !important;
-        }
-
-        .topNavInner h1 {
-          font-size: 21px !important;
-        }
-
-        .navSearch {
-          border-radius: 10px !important;
-        }
-
-        .navSearch select {
-          display: none !important;
-        }
-
-        .navSearch input {
-          padding: 11px 9px !important;
-          font-size: 14px !important;
-        }
-
-        .navSearch button {
-          padding: 0 13px !important;
-        }
-
-        .heroGrid {
-          border-radius: 18px !important;
-        }
-
-        .heroGrid h1 {
-          font-size: 32px !important;
-        }
-
-        .heroGrid p {
-          font-size: 14px !important;
-        }
-
-        .detailsGrid img {
-          height: 330px !important;
-        }
-
-        .detailsGrid h1 {
-          font-size: 26px !important;
-        }
-
-        .detailsGrid strong[style*="font-size: 44"] {
-          font-size: 34px !important;
         }
 
         .mobileBottomBar button {
@@ -1847,13 +1995,16 @@ function GlobalStyles() {
       }
 
       @media (max-width: 360px) {
-        .topNavInner > button {
-          font-size: 12px !important;
-          padding: 7px 8px !important;
+        .filterRow {
+          grid-template-columns: 1fr !important;
         }
 
-        .heroGrid h1 {
-          font-size: 29px !important;
+        .heroCopy h1 {
+          font-size: 31px !important;
+        }
+
+        .productCardImage {
+          height: 215px !important;
         }
 
         .mobileBottomBar {
@@ -1866,108 +2017,6 @@ function GlobalStyles() {
           border-radius: 13px;
         }
       }
-
-      /* Final phone overflow fixes */
-      .filterRow {
-        display: flex;
-        gap: 12px;
-        overflow-x: visible !important;
-        flex-wrap: wrap;
-        padding-bottom: 8px;
-        max-width: 100%;
-      }
-
-      .cartItemRow {
-        min-width: 0;
-      }
-
-      .cartItemInfo {
-        min-width: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .cartItemActions {
-        flex-wrap: wrap;
-      }
-
-      @media (max-width: 700px) {
-        .filterRow {
-          gap: 8px !important;
-        }
-
-        .filterRow button {
-          flex: 1 1 calc(50% - 8px);
-          min-width: 0;
-          padding: 11px 10px !important;
-          font-size: 13px !important;
-          white-space: normal !important;
-          line-height: 1.2 !important;
-        }
-
-        .cartItemRow {
-          display: grid !important;
-          grid-template-columns: 82px 1fr !important;
-          gap: 12px !important;
-          align-items: start !important;
-          padding: 14px !important;
-        }
-
-        .cartItemRow img {
-          width: 82px !important;
-          height: 82px !important;
-        }
-
-        .cartItemPrice {
-          grid-column: 1 / -1;
-          justify-self: end;
-          font-size: 18px !important;
-          margin-top: -4px;
-        }
-
-        .cartItemActions {
-          gap: 8px !important;
-        }
-      }
-
-      @media (max-width: 420px) {
-        .filterRow button {
-          flex: 1 1 100%;
-        }
-
-        .cartItemRow {
-          grid-template-columns: 70px 1fr !important;
-          padding: 12px !important;
-        }
-
-        .cartItemRow img {
-          width: 70px !important;
-          height: 70px !important;
-          border-radius: 12px !important;
-        }
-
-        .cartItemInfo h3 {
-          font-size: 16px !important;
-          line-height: 1.25 !important;
-        }
-
-        .cartItemInfo p {
-          font-size: 13px !important;
-          line-height: 1.35 !important;
-          margin: 7px 0 !important;
-        }
-      }
-
-      @media (max-width: 540px) {
-        .categorySection {
-          padding-left: 14px !important;
-          padding-right: 14px !important;
-        }
-
-        .categorySection h2 {
-          font-size: 26px !important;
-        }
-      }
-
     `}</style>
   );
 }
@@ -2029,7 +2078,7 @@ function Navbar({
           gap: 18,
         }}
       >
-        <div onClick={() => setPage("home")} style={{ cursor: "pointer" }}>
+        <div className="brandBlock" onClick={() => setPage("home")} style={{ cursor: "pointer" }}>
           <h1
             style={{
               margin: 0,
@@ -2269,6 +2318,7 @@ function SubNavbar({
 
   return (
     <nav
+      className="subNav"
       style={{
         background: theme.subnav,
         color: "#fff",
@@ -2385,6 +2435,7 @@ function HomePage({
       </section>
 
       <main
+        className="productSection"
         style={{
           maxWidth: 1500,
           margin: "0 auto",
@@ -2392,6 +2443,7 @@ function HomePage({
         }}
       >
         <div
+          className="sectionHeader"
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -2474,6 +2526,7 @@ function HomePage({
         )}
 
         <div
+          className="productsGrid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
@@ -2498,6 +2551,7 @@ function HomePage({
 function Hero({ theme, setPage, isAdmin }) {
   return (
     <section
+      className="heroSection"
       style={{
         maxWidth: 1500,
         margin: "0 auto",
@@ -2518,6 +2572,7 @@ function Hero({ theme, setPage, isAdmin }) {
         }}
       >
         <div
+          className="heroCopy"
           style={{
             padding: "62px 52px",
             color: "#fff",
@@ -2616,6 +2671,7 @@ function Hero({ theme, setPage, isAdmin }) {
           }}
         >
           <div
+            className="heroPriceCard"
             style={{
               position: "absolute",
               right: 26,
@@ -2660,6 +2716,7 @@ function Benefits({ theme }) {
 
   return (
     <section
+      className="benefitsGrid"
       style={{
         maxWidth: 1500,
         margin: "0 auto",
@@ -2672,7 +2729,7 @@ function Benefits({ theme }) {
       {list.map(([icon, title, sub]) => (
         <div
           key={title}
-          className="hoverLift"
+          className="benefitCard hoverLift"
           style={{
             background: theme.panel,
             border: `1px solid ${theme.border}`,
@@ -2779,7 +2836,7 @@ function ProductCard({ product, theme, setPage, setSelectedProduct }) {
 
   return (
     <div
-      className="hoverLift"
+      className="productCard hoverLift"
       style={{
         background: theme.panel,
         border: `1px solid ${theme.border}`,
@@ -2802,6 +2859,7 @@ function ProductCard({ product, theme, setPage, setSelectedProduct }) {
         }}
       >
         <img
+          className="productCardImage"
           src={product.image}
           alt={product.name}
           style={{
@@ -2830,6 +2888,7 @@ function ProductCard({ product, theme, setPage, setSelectedProduct }) {
       </div>
 
       <div
+        className="productCardBody"
         style={{
           padding: 18,
         }}
@@ -2888,6 +2947,7 @@ function ProductCard({ product, theme, setPage, setSelectedProduct }) {
         </div>
 
         <div
+          className="productPriceRow"
           style={{
             display: "flex",
             gap: 8,
