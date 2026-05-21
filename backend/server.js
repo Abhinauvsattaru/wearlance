@@ -15,6 +15,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
+const deliveryRoutes = require("./routes/deliveryRoutes");
 
 const {
   generalLimiter,
@@ -137,12 +138,19 @@ app.get("/", (req, res) => {
       <body>
         <div class="card">
           <h1>WEARLANCE API Running 🚀</h1>
-          <p>Every Style ₹399 · Backend Connected · Security Hardened</p>
+          <p>Every Style ₹399 · Backend Connected · Security Hardened · Delivery Phase 1</p>
           <code>Environment: ${process.env.NODE_ENV || "development"}</code>
           <code>Frontend URL: ${process.env.FRONTEND_URL || "http://localhost:5173"}</code>
           <code>Security: Helmet + CORS allowlist + rate limiting + NoSQL key sanitization</code>
           <code>GET /api/products</code>
-          <code>PUT /api/products/:id</code>
+          <code>POST /api/delivery/apply</code>
+          <code>GET /api/delivery/me</code>
+          <code>GET /api/delivery/admin/applications</code>
+          <code>PUT /api/delivery/admin/:id/approve</code>
+          <code>PUT /api/delivery/admin/:id/reject</code>
+          <code>PUT /api/delivery/admin/:id/suspend</code>
+          <code>PUT /api/delivery/admin/:id/reactivate</code>
+          <code>GET /api/delivery/admin/logs</code>
           <code>POST /api/orders</code>
           <code>PUT /api/orders/:id/cancel</code>
           <code>PUT /api/orders/:id/return</code>
@@ -165,6 +173,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/payments", paymentLimiter, paymentRoutes);
 app.use("/api/invoices", invoiceRoutes);
+app.use("/api/delivery", deliveryRoutes);
 
 // 404
 app.use((req, res) => {
