@@ -2017,6 +2017,79 @@ function GlobalStyles() {
           border-radius: 13px;
         }
       }
+
+      .categoryArrow {
+        transition: transform 0.22s ease;
+      }
+
+      .categoryArrow.open {
+        transform: rotate(180deg);
+      }
+
+      .categoryDrawer {
+        animation: categoryReveal 0.22s ease;
+      }
+
+      @keyframes categoryReveal {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 700px) {
+        .categorySection {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          margin: 8px 12px 0 !important;
+          padding: 0 !important;
+        }
+
+        .categoryToggle {
+          padding: 15px 16px !important;
+          border-radius: 20px !important;
+        }
+
+        .categoryToggle strong {
+          font-size: 21px !important;
+        }
+
+        .categoryToggle span span {
+          font-size: 12px !important;
+        }
+
+        .categoryArrow {
+          width: 38px !important;
+          height: 38px !important;
+          font-size: 20px !important;
+        }
+
+        .categoryDrawer {
+          padding: 14px !important;
+          border-radius: 20px !important;
+        }
+      }
+
+      @media (max-width: 430px) {
+        .categoryToggle {
+          padding: 14px !important;
+        }
+
+        .categoryToggle strong {
+          font-size: 19px !important;
+        }
+
+        .categoryArrow {
+          width: 35px !important;
+          height: 35px !important;
+        }
+      }
+
     `}</style>
   );
 }
@@ -2393,6 +2466,8 @@ function HomePage({
   fetchProducts,
   isAdmin,
 }) {
+  const [showCategoryDrawer, setShowCategoryDrawer] = useState(false);
+
   return (
     <>
       <Hero theme={theme} setPage={setPage} isAdmin={isAdmin} />
@@ -2407,31 +2482,139 @@ function HomePage({
           padding: "18px 24px 0",
         }}
       >
-        <h2
+        <button
+          type="button"
+          className="categoryToggle"
+          onClick={() => setShowCategoryDrawer((prev) => !prev)}
+          aria-expanded={showCategoryDrawer}
           style={{
-            fontSize: 32,
-            margin: "0 0 18px",
-            fontWeight: 950,
+            width: "100%",
+            border: `1px solid ${theme.border}`,
+            background: theme.panel,
+            color: theme.text,
+            borderRadius: 22,
+            padding: "18px 22px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            cursor: "pointer",
+            boxShadow:
+              theme.bg === "#07111f"
+                ? "0 10px 28px rgba(0,0,0,0.28)"
+                : "0 12px 28px rgba(15,23,42,0.08)",
           }}
         >
-          Shop by Category
-        </h2>
+          <span
+            style={{
+              display: "grid",
+              gap: 4,
+              textAlign: "left",
+            }}
+          >
+            <strong
+              style={{
+                fontSize: 28,
+                fontWeight: 950,
+                lineHeight: 1.1,
+              }}
+            >
+              Shop by Category
+            </strong>
+            <span
+              style={{
+                color: theme.muted,
+                fontSize: 14,
+                fontWeight: 800,
+              }}
+            >
+              {selectedCategory === "All" && selectedGender === "All"
+                ? "Browse categories and styles"
+                : `${selectedCategory} · ${selectedGender}`}
+            </span>
+          </span>
 
-        <FilterRow
-          list={categories}
-          selected={selectedCategory}
-          setSelected={setSelectedCategory}
-          theme={theme}
-        />
+          <span
+            className={showCategoryDrawer ? "categoryArrow open" : "categoryArrow"}
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg,#ff9900,#ec4899)",
+              color: "#fff",
+              display: "grid",
+              placeItems: "center",
+              fontSize: 22,
+              fontWeight: 950,
+              flex: "0 0 auto",
+            }}
+          >
+           ⌄
+          </span>
+        </button>
 
-        <div style={{ height: 14 }} />
+        {showCategoryDrawer && (
+          <div
+            className="categoryDrawer"
+            style={{
+              marginTop: 14,
+              background: theme.panel,
+              border: `1px solid ${theme.border}`,
+              borderRadius: 22,
+              padding: 18,
+              boxShadow:
+                theme.bg === "#07111f"
+                  ? "0 12px 30px rgba(0,0,0,0.28)"
+                  : "0 12px 28px rgba(15,23,42,0.07)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 17 }}>Categories</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory("All");
+                  setSelectedGender("All");
+                }}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: theme.orange2,
+                  fontWeight: 950,
+                  cursor: "pointer",
+                }}
+              >
+                Reset
+              </button>
+            </div>
 
-        <FilterRow
-          list={genders}
-          selected={selectedGender}
-          setSelected={setSelectedGender}
-          theme={theme}
-        />
+            <FilterRow
+              list={categories}
+              selected={selectedCategory}
+              setSelected={setSelectedCategory}
+              theme={theme}
+            />
+
+            <div style={{ height: 16 }} />
+
+            <h3 style={{ margin: "0 0 12px", fontSize: 17 }}>Style For</h3>
+
+            <FilterRow
+              list={genders}
+              selected={selectedGender}
+              setSelected={setSelectedGender}
+              theme={theme}
+            />
+          </div>
+        )}
       </section>
 
       <main
