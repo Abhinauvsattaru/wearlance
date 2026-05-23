@@ -1,61 +1,3 @@
-const https = require("https");
-
-const postJson = (url, payload) => {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify(payload);
-    const parsedUrl = new URL(url);
-
-    const request = https.request(
-      {
-        hostname: parsedUrl.hostname,
-        path: parsedUrl.pathname + parsedUrl.search,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(body),
-        },
-        timeout: 30000,
-      },
-      (response) => {
-        let data = "";
-
-        response.on("data", (chunk) => {
-          data += chunk;
-        });
-
-        response.on("end", () => {
-          try {
-            const json = JSON.parse(data || "{}");
-            resolve({
-              statusCode: response.statusCode,
-              data: json,
-            });
-          } catch (error) {
-            reject(new Error(`Invalid mail API response: ${data}`));
-          }
-        });
-      }
-    );
-
-    request.on("timeout", () => {
-      request.destroy(new Error("Google Mail Web App request timeout"));
-    });
-
-    request.on("error", reject);
-    request.write(body);
-    request.end();
-  });
-};
-
-const stripHtml = (html = "") => {
-  return String(html)
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+\n/g, "\n")
-    .trim();
-};
-
 const sendEmail = async (options = {}) => {
   try {
     const webAppUrl = process.env.GOOGLE_MAIL_WEBAPP_URL;
@@ -73,26 +15,57 @@ const sendEmail = async (options = {}) => {
       return false;
     }
 
-    const subject = options.subject || "Wearlance Notification";
-    const html = options.html || "";
-    const text = options.message || options.text || stripHtml(html) || "Wearlance notification";
+    const subject = options.subject || "Wearlance OTP";
+    const message = options.message || options.text || "Wearlance notification";
+    const html = options.html || `<p>${message}</p>`;
 
-    const result = await postJson(webAppUrl, {
+    const payload = {
       secret,
       to,
       subject,
+      text: message,
       html,
-      text,
       fromName: process.env.EMAIL_FROM_NAME || "Wearlance",
+    };
+
+    const response = await fetch(webAppUrl, {
+      method: "POST",
+      redirect: "follow",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify(payload),
     });
 
-    if (result.statusCode < 200 || result.statusCode >= 300 || !result.data.success) {
-      console.error("❌ Email Error:", result.data.message || `Mail API failed with ${result.statusCode}`);
-      return false;
+    const rawText = await response.text();
+
+    console.log("📧 Gmail Apps Script status:", response.status);
+    console.log("📧 Gmail Apps Script response:", rawText.slice(0, 500));
+
+    let data = null;
+
+    try {
+      data = JSON.parse(rawText);
+    } catch (error) {
+      data = null;
     }
 
-    console.log("✅ Email sent successfully using Google Apps Script:", result.data.message || "OK");
-    return true;
+    if (response.ok && (!data || data.success !== false)) {
+      console.log("✅ OTP email request accepted by Gmail Apps Script");
+      return true;
+    }
+
+    if (data && data.success === true) {
+      console.log("✅ OTP email sent from Gmail Apps Script");
+      return true;
+    }
+
+    console.error(
+      "❌ Email Error:",
+      data?.message || data?.error || rawText || "Google Apps Script mail request failed"
+    );
+
+    return false;
   } catch (error) {
     console.error("❌ Email Error:", error.message);
     return false;
