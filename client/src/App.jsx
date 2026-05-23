@@ -3304,6 +3304,14 @@ function GlobalStyles() {
         }
       }
 
+
+      @media (max-width: 820px) {
+        .supportContactGrid,
+        .supportInfoGrid {
+          grid-template-columns: 1fr !important;
+        }
+      }
+
     `}</style>
   );
 }
@@ -6828,8 +6836,29 @@ function OrderCard({
 
 
 function SupportPage({ theme, setPage }) {
+  const contactCards = [
+    {
+      icon: "📞",
+      title: "Call Support",
+      value: "+91 8523813819",
+      note: "For COD order confirmation, delivery questions, and urgent help.",
+    },
+    {
+      icon: "✉️",
+      title: "Email Support",
+      value: "abhinauv22@gmail.com",
+      note: "For order issues, delivery updates, returns, and account help.",
+    },
+    {
+      icon: "📍",
+      title: "Service Address",
+      value: "Tekkali, Srikakulam, Andhra Pradesh",
+      note: "Wearlance is starting with focused local delivery support.",
+    },
+  ];
+
   return (
-    <main style={{ maxWidth: 950, margin: "0 auto", padding: "38px 24px 96px" }}>
+    <main style={{ maxWidth: 1050, margin: "0 auto", padding: "38px 24px 96px" }}>
       <button
         onClick={() => setPage("home")}
         style={{
@@ -6848,26 +6877,159 @@ function SupportPage({ theme, setPage }) {
         style={{
           background: theme.panel,
           border: `1px solid ${theme.border}`,
-          borderRadius: 26,
-          padding: 26,
-          lineHeight: 1.7,
+          borderRadius: 28,
+          overflow: "hidden",
+          boxShadow:
+            theme.bg === "#07111f"
+              ? "0 16px 40px rgba(0,0,0,0.32)"
+              : "0 18px 45px rgba(15,23,42,0.10)",
         }}
       >
-        <h1 style={{ marginTop: 0 }}>Wearlance Support</h1>
-        <p style={{ color: theme.muted }}>
-          For COD order confirmation, delivery timing, address correction, or return help,
-          contact Wearlance support.
-        </p>
+        <div
+          style={{
+            padding: "34px 30px",
+            background: "linear-gradient(135deg,#111827,#2874f0,#fb641b)",
+            color: "#fff",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontWeight: 950,
+              letterSpacing: 3,
+              fontSize: 12,
+              opacity: 0.92,
+            }}
+          >
+            WEARLANCE CUSTOMER CARE
+          </p>
 
-        <div style={{ display: "grid", gap: 12 }}>
-          <InfoBox theme={theme} text="COD orders are confirmed manually before delivery assignment." />
-          <InfoBox theme={theme} text="Delivery areas and timings may be limited during early beta launch." />
-          <InfoBox theme={theme} text="Keep your phone reachable after placing a COD order." />
+          <h1
+            style={{
+              margin: "12px 0",
+              fontSize: 42,
+              lineHeight: 1.05,
+            }}
+          >
+            We are here to help
+          </h1>
+
+          <p
+            style={{
+              margin: 0,
+              maxWidth: 760,
+              lineHeight: 1.7,
+              opacity: 0.94,
+              fontSize: 16,
+            }}
+          >
+            Contact Wearlance for order confirmation, delivery updates, address
+            correction, product support, and return-related help.
+          </p>
+        </div>
+
+        <div style={{ padding: 26 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 16,
+            }}
+            className="supportContactGrid"
+          >
+            {contactCards.map((card) => (
+              <div
+                key={card.title}
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 22,
+                  padding: 20,
+                  background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+                }}
+              >
+                <div style={{ fontSize: 30 }}>{card.icon}</div>
+                <h3 style={{ margin: "12px 0 6px" }}>{card.title}</h3>
+                <p
+                  style={{
+                    margin: 0,
+                    color: theme.text,
+                    fontWeight: 950,
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {card.value}
+                </p>
+                <p style={{ color: theme.muted, lineHeight: 1.6, marginBottom: 0 }}>
+                  {card.note}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              marginTop: 22,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 16,
+            }}
+            className="supportInfoGrid"
+          >
+            <div
+              style={{
+                border: `1px solid ${theme.border}`,
+                borderRadius: 22,
+                padding: 20,
+                background: theme.bg === "#07111f" ? "#111827" : "#fff7ed",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Before contacting support</h3>
+              <ul style={{ color: theme.muted, lineHeight: 1.9, marginBottom: 0 }}>
+                <li>Keep your order ID ready.</li>
+                <li>Use the same phone number entered during checkout.</li>
+                <li>For COD orders, keep your phone reachable for confirmation.</li>
+                <li>For delivery OTP, share it only after receiving the product.</li>
+              </ul>
+            </div>
+
+            <div
+              style={{
+                border: `1px solid ${theme.border}`,
+                borderRadius: 22,
+                padding: 20,
+                background: theme.bg === "#07111f" ? "#111827" : "#eff6ff",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Support timing</h3>
+              <p style={{ color: theme.muted, lineHeight: 1.7 }}>
+                Wearlance is currently in early real-user beta. Support and delivery
+                may begin with selected local areas first. We will confirm order and
+                delivery details before dispatching COD orders.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setPage("policy")}
+                style={{
+                  border: "none",
+                  borderRadius: 13,
+                  padding: "12px 16px",
+                  background: theme.blue,
+                  color: "#fff",
+                  fontWeight: 950,
+                  cursor: "pointer",
+                }}
+              >
+                View COD & Return Policy
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </main>
   );
 }
+
 
 function PolicyPage({ theme, setPage }) {
   return (
