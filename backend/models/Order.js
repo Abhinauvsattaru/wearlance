@@ -193,6 +193,66 @@ const orderSchema = new mongoose.Schema(
       default: "Placed",
     },
 
+
+    assignedDeliveryPartner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryPartner",
+      default: null,
+      index: true,
+    },
+
+    deliveryAssignedAt: {
+      type: Date,
+      default: null,
+    },
+
+    deliveryPickedUpAt: {
+      type: Date,
+      default: null,
+    },
+
+    deliveryOutForDeliveryAt: {
+      type: Date,
+      default: null,
+    },
+
+    deliveryTimeline: [
+      {
+        action: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        by: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+        },
+        deliveryPartner: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "DeliveryPartner",
+          default: null,
+        },
+        note: {
+          type: String,
+          default: "",
+          trim: true,
+        },
+        ip: {
+          type: String,
+          default: "",
+        },
+        device: {
+          type: String,
+          default: "",
+        },
+        at: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
     deliveryOtp: {
       type: String,
       default: null,

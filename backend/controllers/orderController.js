@@ -1,5 +1,7 @@
 const Order = require("../models/Order");
 const Product = require("../models/Product");
+const DeliveryPartner = require("../models/DeliveryPartner");
+const DeliveryActionLog = require("../models/DeliveryActionLog");
 const sendEmail = require("../utils/sendEmail");
 
 const {
@@ -10,6 +12,64 @@ const {
 } = require("../utils/emailTemplates");
 
 const FIXED_PRICE = 399;
+
+
+const getRequestIp = (req) => {
+  return (
+    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    req.socket?.remoteAddress ||
+    ""
+  );
+};
+
+const getRequestDevice = (req) => {
+  return String(req.headers["user-agent"] || "").slice(0, 300);
+};
+
+const writeDeliveryLog = async ({
+  req,
+  order = null,
+  deliveryPartner = null,
+  action,
+  result = "info",
+  note = "",
+}) => {
+  try {
+    await DeliveryActionLog.create({
+      order,
+      deliveryPartner,
+      actor: req.user._id,
+      action,
+      result,
+      note,
+      ip: getRequestIp(req),
+      device: getRequestDevice(req),
+    });
+  } catch (error) {
+    console.error("Delivery log failed:", error.message);
+  }
+};
+
+const pushOrderTimeline = ({ order, req, deliveryPartner = null, action, note = "" }) => {
+  order.deliveryTimeline.push({
+    action,
+    by: req.user._id,
+    deliveryPartner,
+    note,
+    ip: getRequestIp(req),
+    device: getRequestDevice(req),
+    at: new Date(),
+  });
+};
+
+const getMyApprovedDeliveryPartner = async (req) => {
+  return DeliveryPartner.findOne({
+    user: req.user._id,
+    status: "approved",
+    isActive: true,
+  });
+};
+
 
 const generateDeliveryOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -202,10 +262,9 @@ const getMyOrders = async (req, res) => {
 
 const getSingleOrder = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate(
-      "user",
-      "name email isAdmin"
-    );
+    const order = await Order.findById(req.params.id)
+      .populate("user", "name email isAdmin")
+      .populate("assignedDeliveryPartner", "name email phone city status isActive");
 
     if (!order) {
       return res.status(404).json({
@@ -217,7 +276,17 @@ const getSingleOrder = async (req, res) => {
     const isOwner = String(order.user._id) === String(req.user._id);
     const isAdmin = req.user.isAdmin;
 
-    if (!isOwner && !isAdmin) {
+    let isAssignedDeliveryPartner = false;
+
+    if (order.assignedDeliveryPartner) {
+      const myDeliveryPartner = await getMyApprovedDeliveryPartner(req);
+
+      isAssignedDeliveryPartner =
+        myDeliveryPartner &&
+        String(order.assignedDeliveryPartner._id) === String(myDeliveryPartner._id);
+    }
+
+    if (!isOwner && !isAdmin && !isAssignedDeliveryPartner) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to view this order",
@@ -240,6 +309,7 @@ const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find({})
       .populate("user", "name email isAdmin")
+      .populate("assignedDeliveryPartner", "name email phone city status isActive")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -569,6 +639,407 @@ const requestReturnOrder = async (req, res) => {
   }
 };
 
+
+const assignDeliveryPartner = async (req, res) => {
+  try {
+    const { deliveryPartnerId } = req.body;
+
+    if (!deliveryPartnerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Delivery partner is required",
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (["Cancelled", "Returned", "Return Rejected"].includes(order.orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot assign delivery partner to this order status",
+      });
+    }
+
+    const partner = await DeliveryPartner.findOne({
+      _id: deliveryPartnerId,
+      status: "approved",
+      isActive: true,
+    });
+
+    if (!partner) {
+      return res.status(404).json({
+        success: false,
+        message: "Approved active delivery partner not found",
+      });
+    }
+
+    const previousPartnerId = order.assignedDeliveryPartner
+      ? String(order.assignedDeliveryPartner)
+      : "";
+
+    order.assignedDeliveryPartner = partner._id;
+    order.deliveryAssignedAt = new Date();
+
+    if (order.orderStatus === "Placed") {
+      order.orderStatus = "Packed";
+    }
+
+    pushOrderTimeline({
+      order,
+      req,
+      deliveryPartner: partner._id,
+      action: "DELIVERY_PARTNER_ASSIGNED",
+      note: `Assigned to ${partner.name} (${partner.email})`,
+    });
+
+    const updatedOrder = await order.save();
+
+    if (previousPartnerId !== String(partner._id)) {
+      partner.totalAssigned += 1;
+      await partner.save();
+    }
+
+    await writeDeliveryLog({
+      req,
+      order: updatedOrder._id,
+      deliveryPartner: partner._id,
+      action: "ORDER_ASSIGNED_TO_DELIVERY_PARTNER",
+      result: "success",
+      note: `Order assigned to ${partner.email}`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery partner assigned successfully",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const getAssignedDeliveryOrders = async (req, res) => {
+  try {
+    const partner = await getMyApprovedDeliveryPartner(req);
+
+    if (!partner) {
+      return res.status(403).json({
+        success: false,
+        message: "Approved delivery partner access required",
+      });
+    }
+
+    const orders = await Order.find({
+      assignedDeliveryPartner: partner._id,
+    })
+      .populate("user", "name email")
+      .populate("assignedDeliveryPartner", "name email phone city status isActive")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      partner,
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const markPickedUpByDeliveryPartner = async (req, res) => {
+  try {
+    const partner = await getMyApprovedDeliveryPartner(req);
+
+    if (!partner) {
+      return res.status(403).json({
+        success: false,
+        message: "Approved delivery partner access required",
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (String(order.assignedDeliveryPartner) !== String(partner._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "This order is not assigned to you",
+      });
+    }
+
+    if (["Cancelled", "Returned", "Delivered"].includes(order.orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "This order cannot be picked up now",
+      });
+    }
+
+    order.deliveryPickedUpAt = new Date();
+
+    if (order.orderStatus === "Placed") {
+      order.orderStatus = "Packed";
+    }
+
+    pushOrderTimeline({
+      order,
+      req,
+      deliveryPartner: partner._id,
+      action: "ORDER_PICKED_UP",
+      note: "Delivery partner picked up the order",
+    });
+
+    const updatedOrder = await order.save();
+
+    await writeDeliveryLog({
+      req,
+      order: updatedOrder._id,
+      deliveryPartner: partner._id,
+      action: "ORDER_PICKED_UP",
+      result: "success",
+      note: "Delivery partner marked order as picked up",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Order marked as picked up",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const markOutForDeliveryByPartner = async (req, res) => {
+  try {
+    const partner = await getMyApprovedDeliveryPartner(req);
+
+    if (!partner) {
+      return res.status(403).json({
+        success: false,
+        message: "Approved delivery partner access required",
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (String(order.assignedDeliveryPartner) !== String(partner._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "This order is not assigned to you",
+      });
+    }
+
+    if (["Cancelled", "Returned", "Delivered"].includes(order.orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "This order cannot go out for delivery now",
+      });
+    }
+
+    const otp = generateDeliveryOtp();
+
+    order.orderStatus = "Out for Delivery";
+    order.deliveryOtp = otp;
+    order.deliveryOtpExpires = new Date(Date.now() + 30 * 60 * 1000);
+    order.deliveryOutForDeliveryAt = new Date();
+    order.isDelivered = false;
+    order.deliveredAt = undefined;
+
+    pushOrderTimeline({
+      order,
+      req,
+      deliveryPartner: partner._id,
+      action: "OUT_FOR_DELIVERY",
+      note: "Delivery OTP sent to customer",
+    });
+
+    const updatedOrder = await order.save();
+
+    await sendEmail({
+      to: updatedOrder.shippingAddress.email,
+      subject: `Wearlance Delivery OTP #${String(updatedOrder._id)
+        .slice(-8)
+        .toUpperCase()}`,
+      html: deliveryOtpTemplate(updatedOrder),
+    });
+
+    await writeDeliveryLog({
+      req,
+      order: updatedOrder._id,
+      deliveryPartner: partner._id,
+      action: "OUT_FOR_DELIVERY",
+      result: "success",
+      note: "Delivery OTP sent to customer",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Order is out for delivery. OTP sent to customer.",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const verifyDeliveryOtpByPartner = async (req, res) => {
+  try {
+    const { otp } = req.body;
+
+    if (!otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Delivery OTP is required",
+      });
+    }
+
+    const partner = await getMyApprovedDeliveryPartner(req);
+
+    if (!partner) {
+      return res.status(403).json({
+        success: false,
+        message: "Approved delivery partner access required",
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (String(order.assignedDeliveryPartner) !== String(partner._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "This order is not assigned to you",
+      });
+    }
+
+    if (!["Out for Delivery", "Delivery Verification Pending"].includes(order.orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "This order is not waiting for delivery OTP verification",
+      });
+    }
+
+    if (!order.deliveryOtp || !order.deliveryOtpExpires) {
+      return res.status(400).json({
+        success: false,
+        message: "No delivery OTP found. Mark order out for delivery again.",
+      });
+    }
+
+    if (new Date() > order.deliveryOtpExpires) {
+      order.deliveryOtp = null;
+      order.deliveryOtpExpires = null;
+      await order.save();
+
+      return res.status(400).json({
+        success: false,
+        message: "Delivery OTP expired. Mark order out for delivery again.",
+      });
+    }
+
+    if (String(order.deliveryOtp) !== String(otp)) {
+      await writeDeliveryLog({
+        req,
+        order: order._id,
+        deliveryPartner: partner._id,
+        action: "DELIVERY_OTP_FAILED",
+        result: "failed",
+        note: "Invalid OTP entered by delivery partner",
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid delivery OTP",
+      });
+    }
+
+    order.orderStatus = "Delivered";
+    order.isDelivered = true;
+    order.deliveredAt = new Date();
+    order.deliveryOtp = null;
+    order.deliveryOtpExpires = null;
+
+    pushOrderTimeline({
+      order,
+      req,
+      deliveryPartner: partner._id,
+      action: "DELIVERY_OTP_VERIFIED",
+      note: "Delivery confirmed by delivery partner OTP verification",
+    });
+
+    const updatedOrder = await order.save();
+
+    partner.totalDelivered += 1;
+    await partner.save();
+
+    await sendEmail({
+      to: updatedOrder.shippingAddress.email,
+      subject: "Wearlance Order Delivered Successfully",
+      html: orderStatusTemplate(updatedOrder),
+    });
+
+    await writeDeliveryLog({
+      req,
+      order: updatedOrder._id,
+      deliveryPartner: partner._id,
+      action: "DELIVERY_OTP_VERIFIED",
+      result: "success",
+      note: "Order delivered successfully",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery confirmed successfully",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   placeOrder,
   getMyOrders,
@@ -578,4 +1049,9 @@ module.exports = {
   verifyDeliveryOtp,
   cancelMyOrder,
   requestReturnOrder,
+  assignDeliveryPartner,
+  getAssignedDeliveryOrders,
+  markPickedUpByDeliveryPartner,
+  markOutForDeliveryByPartner,
+  verifyDeliveryOtpByPartner,
 };
