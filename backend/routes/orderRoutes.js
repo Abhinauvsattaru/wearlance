@@ -2,6 +2,8 @@ const express = require("express");
 
 const {
   placeOrder,
+  confirmCodOrder,
+  addAdminOrderNote,
   getMyOrders,
   getSingleOrder,
   getAllOrders,
@@ -25,6 +27,10 @@ router.post("/", protect, placeOrder);
 router.get("/my-orders", protect, getMyOrders);
 
 router.get("/admin/all", protect, adminOnly, getAllOrders);
+
+router.put("/:id/confirm-cod", protect, adminOnly, confirmCodOrder);
+
+router.put("/:id/admin-note", protect, adminOnly, addAdminOrderNote);
 
 
 router.get("/delivery/assigned", protect, getAssignedDeliveryOrders);

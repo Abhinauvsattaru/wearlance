@@ -241,6 +241,109 @@ const placeOrder = async (req, res) => {
   }
 };
 
+
+const confirmCodOrder = async (req, res) => {
+  try {
+    const { note } = req.body;
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.paymentMethod !== "COD") {
+      return res.status(400).json({
+        success: false,
+        message: "Only COD orders require manual confirmation",
+      });
+    }
+
+    if (["Delivered", "Cancelled", "Returned"].includes(order.orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Completed orders cannot be confirmed",
+      });
+    }
+
+    order.adminConfirmed = true;
+    order.adminConfirmedBy = req.user._id;
+    order.adminConfirmedAt = new Date();
+    order.orderStatus = "Admin Confirmed";
+
+    if (note && note.trim()) {
+      order.adminNotes.push({
+        note: note.trim(),
+        by: req.user._id,
+        at: new Date(),
+      });
+    }
+
+    const updatedOrder = await order.save();
+
+    await sendEmail({
+      to: updatedOrder.shippingAddress.email,
+      subject: "Wearlance COD Order Confirmed",
+      html: orderStatusTemplate(updatedOrder),
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "COD order confirmed. You can now assign delivery partner.",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const addAdminOrderNote = async (req, res) => {
+  try {
+    const { note } = req.body;
+
+    if (!note || !note.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Note is required",
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    order.adminNotes.push({
+      note: note.trim(),
+      by: req.user._id,
+      at: new Date(),
+    });
+
+    const updatedOrder = await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Admin note added",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id }).sort({
@@ -264,12 +367,21 @@ const getSingleOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("user", "name email isAdmin")
-      .populate("assignedDeliveryPartner", "name email phone city status isActive");
+      .populate("assignedDeliveryPartner", "name email phone city status isActive")
+      .populate("adminConfirmedBy", "name email")
+      .populate("adminNotes.by", "name email");
 
     if (!order) {
       return res.status(404).json({
         success: false,
         message: "Order not found",
+      });
+    }
+
+    if (["Delivered", "Cancelled", "Returned"].includes(order.orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Completed orders cannot be changed",
       });
     }
 
@@ -310,6 +422,8 @@ const getAllOrders = async (req, res) => {
     const orders = await Order.find({})
       .populate("user", "name email isAdmin")
       .populate("assignedDeliveryPartner", "name email phone city status isActive")
+      .populate("adminConfirmedBy", "name email")
+      .populate("adminNotes.by", "name email")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -331,6 +445,7 @@ const updateOrderStatus = async (req, res) => {
 
     const allowedStatuses = [
       "Placed",
+      "Admin Confirmed",
       "Packed",
       "Shipped",
       "Out for Delivery",
@@ -418,6 +533,12 @@ const updateOrderStatus = async (req, res) => {
     }
 
     order.orderStatus = orderStatus;
+
+    if (orderStatus === "Admin Confirmed") {
+      order.adminConfirmed = true;
+      order.adminConfirmedBy = req.user._id;
+      order.adminConfirmedAt = new Date();
+    }
 
     const updatedOrder = await order.save();
 
@@ -551,6 +672,17 @@ const cancelMyOrder = async (req, res) => {
       });
     }
 
+    if (
+      ["Picked Up", "Out for Delivery", "Delivery Verification Pending", "Delivered", "Returned"].includes(
+        order.orderStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Cancellation is locked after the order enters delivery flow",
+      });
+    }
+
     await restoreStockIfNeeded(order);
 
     order.orderStatus = "Cancelled";
@@ -660,10 +792,17 @@ const assignDeliveryPartner = async (req, res) => {
       });
     }
 
-    if (["Cancelled", "Returned", "Return Rejected"].includes(order.orderStatus)) {
+    if (["Delivered", "Cancelled", "Returned", "Return Rejected"].includes(order.orderStatus)) {
       return res.status(400).json({
         success: false,
         message: "Cannot assign delivery partner to this order status",
+      });
+    }
+
+    if (order.paymentMethod === "COD" && !order.adminConfirmed) {
+      return res.status(400).json({
+        success: false,
+        message: "Confirm this COD order before assigning a delivery partner",
       });
     }
 
@@ -687,7 +826,7 @@ const assignDeliveryPartner = async (req, res) => {
     order.assignedDeliveryPartner = partner._id;
     order.deliveryAssignedAt = new Date();
 
-    if (order.orderStatus === "Placed") {
+    if (["Placed", "Admin Confirmed"].includes(order.orderStatus)) {
       order.orderStatus = "Packed";
     }
 
@@ -744,6 +883,8 @@ const getAssignedDeliveryOrders = async (req, res) => {
     })
       .populate("user", "name email")
       .populate("assignedDeliveryPartner", "name email phone city status isActive")
+      .populate("adminConfirmedBy", "name email")
+      .populate("adminNotes.by", "name email")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -1042,6 +1183,8 @@ const verifyDeliveryOtpByPartner = async (req, res) => {
 
 module.exports = {
   placeOrder,
+  confirmCodOrder,
+  addAdminOrderNote,
   getMyOrders,
   getSingleOrder,
   getAllOrders,

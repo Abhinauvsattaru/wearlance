@@ -179,6 +179,7 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: [
         "Placed",
+        "Admin Confirmed",
         "Packed",
         "Shipped",
         "Out for Delivery",
@@ -193,6 +194,41 @@ const orderSchema = new mongoose.Schema(
       default: "Placed",
     },
 
+
+    adminConfirmed: {
+      type: Boolean,
+      default: false,
+    },
+
+    adminConfirmedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    adminConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+
+    adminNotes: [
+      {
+        note: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        by: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+        },
+        at: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
 
     assignedDeliveryPartner: {
       type: mongoose.Schema.Types.ObjectId,

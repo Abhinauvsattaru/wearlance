@@ -35,6 +35,7 @@ const genders = ["All", "Men", "Women", "Unisex"];
 
 const orderStatuses = [
   "Placed",
+  "Admin Confirmed",
   "Packed",
   "Shipped",
   "Out for Delivery",
@@ -1911,6 +1912,74 @@ export default function App() {
       showToast("Backend error while assigning delivery partner");
     }
   };
+  const confirmCodOrder = async (orderId, note = "") => {
+    if (!token || !isAdmin) {
+      showToast("Admin access required");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${ORDER_API}/${orderId}/confirm-cod`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ note }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not confirm COD order");
+        return;
+      }
+
+      showToast("COD order confirmed");
+      await fetchAdminOrders();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while confirming COD order");
+    }
+  };
+
+  const addAdminOrderNote = async (orderId, note) => {
+    if (!token || !isAdmin) {
+      showToast("Admin access required");
+      return;
+    }
+
+    if (!note.trim()) {
+      showToast("Write a note first");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${ORDER_API}/${orderId}/admin-note`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ note }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not save admin note");
+        return;
+      }
+
+      showToast("Admin note saved");
+      await fetchAdminOrders();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while saving admin note");
+    }
+  };
+
+
 
   const fetchAssignedDeliveryOrders = async () => {
     if (!token) {
@@ -2172,6 +2241,8 @@ export default function App() {
             deliveryPartners={approvedDeliveryPartners}
             assignDeliveryPartnerToOrder={assignDeliveryPartnerToOrder}
             fetchDeliveryApplications={fetchDeliveryApplications}
+            confirmCodOrder={confirmCodOrder}
+            addAdminOrderNote={addAdminOrderNote}
           />
         ) : (
           <AccessDenied theme={theme} setPage={setPage} />
@@ -2193,6 +2264,10 @@ export default function App() {
           setPage={setPage}
         />
       )}
+
+      {page === "support" && <SupportPage theme={theme} setPage={setPage} />}
+
+      {page === "policy" && <PolicyPage theme={theme} setPage={setPage} />}
 
       {page === "deliveryApplications" &&
         (isAdmin ? (
@@ -3510,6 +3585,14 @@ function SubNavbar({
     {
       label: "🚚 Free Delivery",
       action: () => setPage("home"),
+    },
+    {
+      label: "📞 Support",
+      action: () => setPage("support"),
+    },
+    {
+      label: "📜 Policy",
+      action: () => setPage("policy"),
     },
   ];
 
@@ -5507,6 +5590,8 @@ function AdminOrdersPage({
   deliveryPartners,
   assignDeliveryPartnerToOrder,
   fetchDeliveryApplications,
+  confirmCodOrder,
+  addAdminOrderNote,
 }) {
   const [orderSearch, setOrderSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -5798,6 +5883,8 @@ function AdminOrdersPage({
             deliveryPartners={deliveryPartners}
             assignDeliveryPartnerToOrder={assignDeliveryPartnerToOrder}
             fetchDeliveryApplications={fetchDeliveryApplications}
+            confirmCodOrder={confirmCodOrder}
+            addAdminOrderNote={addAdminOrderNote}
           />
         ))}
       </div>
@@ -5883,11 +5970,15 @@ function OrderCard({
   deliveryPartners = [],
   assignDeliveryPartnerToOrder,
   fetchDeliveryApplications,
+  confirmCodOrder,
+  addAdminOrderNote,
   deliveryOrderAction,
 }) {
   const [returnReason, setReturnReason] = useState("");
   const [deliveryOtp, setDeliveryOtp] = useState("");
   const [partnerOtp, setPartnerOtp] = useState("");
+  const [adminNoteText, setAdminNoteText] = useState("");
+  const [confirmNoteText, setConfirmNoteText] = useState("");
   const [assignPartnerId, setAssignPartnerId] = useState(
     order.assignedDeliveryPartner?._id || order.assignedDeliveryPartner || ""
   );
@@ -6379,6 +6470,52 @@ function OrderCard({
           </p>
         </div>
 
+        {adminView && !isFinalOrder && order.paymentMethod === "COD" && !order.adminConfirmed && (
+          <div
+            style={{
+              marginBottom: 18,
+              border: `1px solid ${theme.orange2}`,
+              borderRadius: 16,
+              padding: 14,
+              background: "rgba(251,100,27,0.08)",
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>COD Confirmation Required</h3>
+            <p style={{ color: theme.muted, lineHeight: 1.6 }}>
+              Call the customer and confirm the order/address before assigning a delivery partner.
+            </p>
+
+            <textarea
+              value={confirmNoteText}
+              onChange={(e) => setConfirmNoteText(e.target.value)}
+              placeholder="Optional confirmation note: customer confirmed by call, delivery time, address instruction..."
+              style={{
+                ...formControl(theme),
+                minHeight: 82,
+                resize: "vertical",
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => confirmCodOrder(order._id, confirmNoteText)}
+              style={{
+                marginTop: 10,
+                width: "100%",
+                border: "none",
+                borderRadius: 13,
+                padding: "12px 15px",
+                background: theme.green,
+                color: "#fff",
+                fontWeight: 950,
+                cursor: "pointer",
+              }}
+            >
+              Confirm COD Order
+            </button>
+          </div>
+        )}
+
         {adminView && (
           <div>
             {isFinalOrder ? (
@@ -6423,6 +6560,7 @@ function OrderCard({
                   ))}
                 </select>
 
+                {order.paymentMethod !== "COD" || order.adminConfirmed ? (
                 <div
                   style={{
                     marginTop: 16,
@@ -6485,6 +6623,17 @@ function OrderCard({
                     </p>
                   )}
                 </div>
+                ) : (
+                  <p
+                    style={{
+                      color: theme.orange2,
+                      fontWeight: 850,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Confirm COD order before assigning delivery partner.
+                  </p>
+                )}
 
                 {order.orderStatus === "Delivery Verification Pending" && (
                   <p
@@ -6498,6 +6647,77 @@ function OrderCard({
                     only after customer verification.
                   </p>
                 )}
+              </>
+            )}
+          </div>
+        )}
+
+        {adminView && (
+          <div
+            style={{
+              marginTop: 18,
+              borderTop: `1px solid ${theme.border}`,
+              paddingTop: 16,
+            }}
+          >
+            <h3>Admin Notes</h3>
+
+            {order.adminNotes?.length > 0 ? (
+              <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+                {order.adminNotes.slice(-3).map((note, index) => (
+                  <div
+                    key={`${order._id}-note-${index}`}
+                    style={{
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: 13,
+                      padding: 10,
+                      background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+                    }}
+                  >
+                    <p style={{ margin: 0, color: theme.text }}>{note.note}</p>
+                    <p style={{ margin: "5px 0 0", color: theme.muted, fontSize: 12 }}>
+                      {note.by?.name || "Admin"} · {new Date(note.at).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: theme.muted }}>No admin notes yet.</p>
+            )}
+
+            {!isFinalOrder && (
+              <>
+                <textarea
+                  value={adminNoteText}
+                  onChange={(e) => setAdminNoteText(e.target.value)}
+                  placeholder="Internal note: customer confirmed, address issue, delivery timing..."
+                  style={{
+                    ...formControl(theme),
+                    minHeight: 76,
+                    resize: "vertical",
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    addAdminOrderNote(order._id, adminNoteText);
+                    setAdminNoteText("");
+                  }}
+                  style={{
+                    marginTop: 10,
+                    width: "100%",
+                    border: "none",
+                    borderRadius: 13,
+                    padding: "12px 15px",
+                    background: theme.blue,
+                    color: "#fff",
+                    fontWeight: 950,
+                    cursor: "pointer",
+                  }}
+                >
+                  Save Admin Note
+                </button>
               </>
             )}
           </div>
@@ -6605,6 +6825,104 @@ function OrderCard({
 }
 
 
+
+
+function SupportPage({ theme, setPage }) {
+  return (
+    <main style={{ maxWidth: 950, margin: "0 auto", padding: "38px 24px 96px" }}>
+      <button
+        onClick={() => setPage("home")}
+        style={{
+          border: "none",
+          background: "transparent",
+          color: theme.blue,
+          fontWeight: 950,
+          cursor: "pointer",
+          marginBottom: 18,
+        }}
+      >
+        ← Back to shopping
+      </button>
+
+      <section
+        style={{
+          background: theme.panel,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 26,
+          padding: 26,
+          lineHeight: 1.7,
+        }}
+      >
+        <h1 style={{ marginTop: 0 }}>Wearlance Support</h1>
+        <p style={{ color: theme.muted }}>
+          For COD order confirmation, delivery timing, address correction, or return help,
+          contact Wearlance support.
+        </p>
+
+        <div style={{ display: "grid", gap: 12 }}>
+          <InfoBox theme={theme} text="COD orders are confirmed manually before delivery assignment." />
+          <InfoBox theme={theme} text="Delivery areas and timings may be limited during early beta launch." />
+          <InfoBox theme={theme} text="Keep your phone reachable after placing a COD order." />
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function PolicyPage({ theme, setPage }) {
+  return (
+    <main style={{ maxWidth: 950, margin: "0 auto", padding: "38px 24px 96px" }}>
+      <button
+        onClick={() => setPage("home")}
+        style={{
+          border: "none",
+          background: "transparent",
+          color: theme.blue,
+          fontWeight: 950,
+          cursor: "pointer",
+          marginBottom: 18,
+        }}
+      >
+        ← Back to shopping
+      </button>
+
+      <section
+        style={{
+          background: theme.panel,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 26,
+          padding: 26,
+          lineHeight: 1.7,
+        }}
+      >
+        <h1 style={{ marginTop: 0 }}>COD, Cancellation & Return Policy</h1>
+
+        <h3>COD order confirmation</h3>
+        <p style={{ color: theme.muted }}>
+          COD orders may be confirmed by admin call/message before delivery partner assignment.
+          Fake or unreachable orders may be cancelled.
+        </p>
+
+        <h3>Cancellation</h3>
+        <p style={{ color: theme.muted }}>
+          Customers can cancel before the order enters delivery flow. Cancellation is locked after
+          pickup/out-for-delivery stages.
+        </p>
+
+        <h3>Returns</h3>
+        <p style={{ color: theme.muted }}>
+          Returns are available only after delivery confirmation and require a valid reason.
+          Final approval is handled by Wearlance admin.
+        </p>
+
+        <h3>Fixed price</h3>
+        <p style={{ color: theme.muted }}>
+          Wearlance currently follows a fixed ₹399 product pricing model during beta.
+        </p>
+      </section>
+    </main>
+  );
+}
 
 function DeliveryDashboardPage({
   theme,
