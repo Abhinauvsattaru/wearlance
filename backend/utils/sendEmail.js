@@ -1,20 +1,68 @@
-const nodemailer = require("nodemailer");
-const dns = require("dns").promises;
+const https = require("https");
 
-const getGmailIPv4Host = async () => {
-  const addresses = await dns.resolve4("smtp.gmail.com");
+const postJson = (url, payload) => {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const parsedUrl = new URL(url);
 
-  if (!addresses || addresses.length === 0) {
-    throw new Error("Could not resolve Gmail SMTP IPv4 address");
-  }
+    const request = https.request(
+      {
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+        },
+        timeout: 30000,
+      },
+      (response) => {
+        let data = "";
 
-  return addresses[0];
+        response.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        response.on("end", () => {
+          try {
+            const json = JSON.parse(data || "{}");
+            resolve({
+              statusCode: response.statusCode,
+              data: json,
+            });
+          } catch (error) {
+            reject(new Error(`Invalid mail API response: ${data}`));
+          }
+        });
+      }
+    );
+
+    request.on("timeout", () => {
+      request.destroy(new Error("Google Mail Web App request timeout"));
+    });
+
+    request.on("error", reject);
+    request.write(body);
+    request.end();
+  });
+};
+
+const stripHtml = (html = "") => {
+  return String(html)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+\n/g, "\n")
+    .trim();
 };
 
 const sendEmail = async (options = {}) => {
   try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ Email Error: EMAIL_USER or EMAIL_PASS missing");
+    const webAppUrl = process.env.GOOGLE_MAIL_WEBAPP_URL;
+    const secret = process.env.GOOGLE_MAIL_SECRET;
+
+    if (!webAppUrl || !secret) {
+      console.error("❌ Email Error: GOOGLE_MAIL_WEBAPP_URL or GOOGLE_MAIL_SECRET missing");
       return false;
     }
 
@@ -26,45 +74,24 @@ const sendEmail = async (options = {}) => {
     }
 
     const subject = options.subject || "Wearlance Notification";
-    const message = options.message || options.text || "Wearlance notification";
-    const html = options.html || `<p>${message}</p>`;
+    const html = options.html || "";
+    const text = options.message || options.text || stripHtml(html) || "Wearlance notification";
 
-    const smtpIPv4Host = await getGmailIPv4Host();
-
-    console.log("📧 Gmail SMTP IPv4 selected:", smtpIPv4Host);
-
-    const transporter = nodemailer.createTransport({
-      host: smtpIPv4Host,
-      port: 587,
-      secure: false,
-      requireTLS: true,
-
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-
-      tls: {
-        servername: "smtp.gmail.com",
-        rejectUnauthorized: true,
-      },
-
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 45000,
-    });
-
-    await transporter.verify();
-
-    const info = await transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME || "Wearlance"}" <${process.env.EMAIL_USER}>`,
+    const result = await postJson(webAppUrl, {
+      secret,
       to,
       subject,
-      text: message,
       html,
+      text,
+      fromName: process.env.EMAIL_FROM_NAME || "Wearlance",
     });
 
-    console.log("✅ Email sent successfully:", info.messageId);
+    if (result.statusCode < 200 || result.statusCode >= 300 || !result.data.success) {
+      console.error("❌ Email Error:", result.data.message || `Mail API failed with ${result.statusCode}`);
+      return false;
+    }
+
+    console.log("✅ Email sent successfully using Google Apps Script:", result.data.message || "OK");
     return true;
   } catch (error) {
     console.error("❌ Email Error:", error.message);
