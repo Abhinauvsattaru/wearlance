@@ -5839,7 +5839,7 @@ function StatusPill({ status, theme }) {
       ? theme.green
       : status === "Cancelled"
       ? theme.red
-      : status === "Shipped" || status === "Out for Delivery"
+      : status === "Shipped" || status === "Out for Delivery" || status === "Picked Up"
       ? theme.blue
       : status === "Delivery Verification Pending"
       ? theme.purple
@@ -5892,6 +5892,12 @@ function OrderCard({
     order.assignedDeliveryPartner?._id || order.assignedDeliveryPartner || ""
   );
   const [reviewForms, setReviewForms] = useState({});
+
+  const isFinalOrder = ["Delivered", "Cancelled", "Returned"].includes(
+    order.orderStatus
+  );
+  const isDelivered = order.orderStatus === "Delivered";
+  const isPartnerAssigned = Boolean(order.assignedDeliveryPartner);
 
   const updateReviewForm = (productId, field, value) => {
     setReviewForms((prev) => ({
@@ -6375,89 +6381,124 @@ function OrderCard({
 
         {adminView && (
           <div>
-            <h3>Update Status</h3>
-            <select
-              value={order.orderStatus}
-              onChange={(e) => updateOrderStatus(order._id, e.target.value)}
-              style={formControl(theme)}
-            >
-              {orderStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-
-            <div
-              style={{
-                marginTop: 16,
-                borderTop: `1px solid ${theme.border}`,
-                paddingTop: 14,
-              }}
-            >
-              <h3 style={{ marginTop: 0 }}>Assign Delivery Partner</h3>
-
-              <p style={{ color: theme.muted, fontSize: 13, lineHeight: 1.5 }}>
-                Current:{" "}
-                <strong>
-                  {order.assignedDeliveryPartner?.name ||
-                    order.assignedDeliveryPartner?.email ||
-                    "Not assigned"}
-                </strong>
-              </p>
-
-              <select
-                value={assignPartnerId}
-                onFocus={fetchDeliveryApplications}
-                onChange={(e) => setAssignPartnerId(e.target.value)}
-                style={formControl(theme)}
-              >
-                <option value="">Select approved partner</option>
-                {deliveryPartners.map((partner) => (
-                  <option key={partner._id} value={partner._id}>
-                    {partner.name} · {partner.city} · {partner.phone}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() =>
-                  assignDeliveryPartnerToOrder(order._id, assignPartnerId)
-                }
+            {isFinalOrder ? (
+              <div
                 style={{
-                  marginTop: 10,
-                  width: "100%",
-                  border: "none",
-                  borderRadius: 13,
-                  padding: "12px 15px",
-                  background: theme.green,
-                  color: "#fff",
-                  fontWeight: 950,
-                  cursor: "pointer",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 16,
+                  padding: 14,
+                  background:
+                    order.orderStatus === "Delivered"
+                      ? "rgba(22,163,74,0.09)"
+                      : "rgba(100,116,139,0.10)",
                 }}
               >
-                Assign Partner
-              </button>
-
-              {deliveryPartners.length === 0 && (
-                <p style={{ color: theme.orange2, fontSize: 13, lineHeight: 1.5 }}>
-                  No approved delivery partners found. Approve one from Delivery Apps.
+                <h3 style={{ marginTop: 0 }}>Order Completed</h3>
+                <p style={{ color: theme.muted, lineHeight: 1.6, marginBottom: 0 }}>
+                  This order is <strong>{order.orderStatus}</strong>. Admin controls are locked
+                  to protect completed order records.
                 </p>
-              )}
-            </div>
 
-            {order.orderStatus === "Delivery Verification Pending" && (
-              <p
-                style={{
-                  color: theme.orange2,
-                  fontWeight: 850,
-                  lineHeight: 1.6,
-                }}
-              >
-                Delivery OTP has been sent to the customer. Delivery completes
-                only after customer verification.
-              </p>
+                {isPartnerAssigned && (
+                  <p style={{ color: theme.green, fontWeight: 950, marginBottom: 0 }}>
+                    Partner:{" "}
+                    {order.assignedDeliveryPartner?.name ||
+                      order.assignedDeliveryPartner?.email ||
+                      "Assigned"}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <h3>Update Status</h3>
+                <select
+                  value={order.orderStatus}
+                  onChange={(e) => updateOrderStatus(order._id, e.target.value)}
+                  style={formControl(theme)}
+                >
+                  {orderStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+
+                <div
+                  style={{
+                    marginTop: 16,
+                    borderTop: `1px solid ${theme.border}`,
+                    paddingTop: 14,
+                  }}
+                >
+                  <h3 style={{ marginTop: 0 }}>
+                    {isPartnerAssigned
+                      ? "Change Delivery Partner"
+                      : "Assign Delivery Partner"}
+                  </h3>
+
+                  <p style={{ color: theme.muted, fontSize: 13, lineHeight: 1.5 }}>
+                    Current:{" "}
+                    <strong>
+                      {order.assignedDeliveryPartner?.name ||
+                        order.assignedDeliveryPartner?.email ||
+                        "Not assigned"}
+                    </strong>
+                  </p>
+
+                  <select
+                    value={assignPartnerId}
+                    onFocus={fetchDeliveryApplications}
+                    onChange={(e) => setAssignPartnerId(e.target.value)}
+                    style={formControl(theme)}
+                  >
+                    <option value="">Select approved partner</option>
+                    {deliveryPartners.map((partner) => (
+                      <option key={partner._id} value={partner._id}>
+                        {partner.name} · {partner.city} · {partner.phone}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      assignDeliveryPartnerToOrder(order._id, assignPartnerId)
+                    }
+                    style={{
+                      marginTop: 10,
+                      width: "100%",
+                      border: "none",
+                      borderRadius: 13,
+                      padding: "12px 15px",
+                      background: isPartnerAssigned ? theme.orange2 : theme.green,
+                      color: "#fff",
+                      fontWeight: 950,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isPartnerAssigned ? "Change Partner" : "Assign Partner"}
+                  </button>
+
+                  {deliveryPartners.length === 0 && (
+                    <p style={{ color: theme.orange2, fontSize: 13, lineHeight: 1.5 }}>
+                      No approved delivery partners found. Approve one from Delivery Apps.
+                    </p>
+                  )}
+                </div>
+
+                {order.orderStatus === "Delivery Verification Pending" && (
+                  <p
+                    style={{
+                      color: theme.orange2,
+                      fontWeight: 850,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Delivery OTP has been sent to the customer. Delivery completes
+                    only after customer verification.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -6466,54 +6507,98 @@ function OrderCard({
           <div>
             <h3>Delivery Actions</h3>
 
-            <p style={{ color: theme.muted, fontSize: 13, lineHeight: 1.6 }}>
-              Collect the OTP from the customer only after handing over the order.
-            </p>
+            {isFinalOrder ? (
+              <div
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 16,
+                  padding: 14,
+                  background:
+                    order.orderStatus === "Delivered"
+                      ? "rgba(22,163,74,0.09)"
+                      : "rgba(100,116,139,0.10)",
+                }}
+              >
+                <p
+                  style={{
+                    color: order.orderStatus === "Delivered" ? theme.green : theme.muted,
+                    fontWeight: 950,
+                    margin: 0,
+                  }}
+                >
+                  {order.orderStatus === "Delivered"
+                    ? "Delivery completed successfully."
+                    : `Order is ${order.orderStatus}. No delivery action required.`}
+                </p>
+              </div>
+            ) : (
+              <>
+                <p style={{ color: theme.muted, fontSize: 13, lineHeight: 1.6 }}>
+                  Follow the delivery flow carefully. OTP should be collected only
+                  after handing over the order.
+                </p>
 
-            <button
-              type="button"
-              onClick={() => deliveryOrderAction(order._id, "pickup")}
-              style={deliveryPanelButton(theme.blue)}
-            >
-              Mark Picked Up
-            </button>
+                {!["Picked Up", "Out for Delivery", "Delivery Verification Pending"].includes(
+                  order.orderStatus
+                ) && (
+                  <button
+                    type="button"
+                    onClick={() => deliveryOrderAction(order._id, "pickup")}
+                    style={deliveryPanelButton(theme.blue)}
+                  >
+                    Mark Picked Up
+                  </button>
+                )}
 
-            <button
-              type="button"
-              onClick={() => deliveryOrderAction(order._id, "outForDelivery")}
-              style={deliveryPanelButton(theme.orange2)}
-            >
-              Out for Delivery
-            </button>
+                {["Picked Up", "Shipped"].includes(order.orderStatus) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      deliveryOrderAction(order._id, "outForDelivery")
+                    }
+                    style={deliveryPanelButton(theme.orange2)}
+                  >
+                    Out for Delivery
+                  </button>
+                )}
 
-            <input
-              value={partnerOtp}
-              onChange={(e) =>
-                setPartnerOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-              }
-              placeholder="Customer OTP"
-              style={{
-                ...formControl(theme),
-                marginTop: 10,
-                letterSpacing: 5,
-                fontWeight: 950,
-                textAlign: "center",
-              }}
-              inputMode="numeric"
-              maxLength={6}
-            />
+                {["Out for Delivery", "Delivery Verification Pending"].includes(
+                  order.orderStatus
+                ) && (
+                  <>
+                    <input
+                      value={partnerOtp}
+                      onChange={(e) =>
+                        setPartnerOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                      placeholder="Customer OTP"
+                      style={{
+                        ...formControl(theme),
+                        marginTop: 10,
+                        letterSpacing: 5,
+                        fontWeight: 950,
+                        textAlign: "center",
+                      }}
+                      inputMode="numeric"
+                      maxLength={6}
+                    />
 
-            <button
-              type="button"
-              onClick={() =>
-                deliveryOrderAction(order._id, "verifyOtp", partnerOtp)
-              }
-              style={deliveryPanelButton(theme.green)}
-            >
-              Verify OTP & Deliver
-            </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        deliveryOrderAction(order._id, "verifyOtp", partnerOtp)
+                      }
+                      style={deliveryPanelButton(theme.green)}
+                    >
+                      Verify OTP & Deliver
+                    </button>
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
+
       </div>
     </section>
   );
