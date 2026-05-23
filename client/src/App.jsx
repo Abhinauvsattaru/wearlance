@@ -1613,6 +1613,7 @@ export default function App() {
         return;
       }
 
+      setDeliveryInvites((prev) => prev.filter((invite) => invite._id !== inviteId));
       showToast("Delivery access email removed");
       await fetchDeliveryInvites();
     } catch (error) {
@@ -6154,6 +6155,8 @@ function DeliveryApplyPage({
     approved: theme.green,
     rejected: theme.red,
     suspended: theme.red,
+    withdrawn: theme.muted,
+    revoked: theme.muted,
   };
 
   return (
@@ -6698,10 +6701,12 @@ function AdminDeliveryApplicationsPage({
         </form>
 
         <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-          {invites.length === 0 ? (
+          {invites.filter((invite) => (invite.status || "active") === "active").length === 0 ? (
             <p style={{ color: theme.muted, margin: 0 }}>No delivery access emails added yet.</p>
           ) : (
-            invites.map((invite) => (
+            invites
+              .filter((invite) => (invite.status || "active") === "active")
+              .map((invite) => (
               <div
                 key={invite._id}
                 style={{
@@ -6832,31 +6837,40 @@ function AdminDeliveryApplicationsPage({
                   minWidth: 170,
                 }}
               >
-                {app.status !== "approved" && (
-                  <button
-                    onClick={() => updateDeliveryPartnerStatus(app._id, "approve")}
-                    style={deliveryActionButton(theme.green)}
-                  >
-                    Approve
-                  </button>
+                {app.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => updateDeliveryPartnerStatus(app._id, "approve")}
+                      style={deliveryActionButton(theme.green)}
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() => updateDeliveryPartnerStatus(app._id, "reject")}
+                      style={deliveryActionButton(theme.red)}
+                    >
+                      Reject
+                    </button>
+                  </>
                 )}
 
-                {app.status !== "rejected" && (
-                  <button
-                    onClick={() => updateDeliveryPartnerStatus(app._id, "reject")}
-                    style={deliveryActionButton(theme.red)}
-                  >
-                    Reject
-                  </button>
-                )}
+                {app.status === "approved" && (
+                  <>
+                    <button
+                      onClick={() => updateDeliveryPartnerStatus(app._id, "suspend")}
+                      style={deliveryActionButton(theme.orange2)}
+                    >
+                      Suspend
+                    </button>
 
-                {app.status !== "suspended" && (
-                  <button
-                    onClick={() => updateDeliveryPartnerStatus(app._id, "suspend")}
-                    style={deliveryActionButton(theme.orange2)}
-                  >
-                    Suspend
-                  </button>
+                    <button
+                      onClick={() => updateDeliveryPartnerStatus(app._id, "reject")}
+                      style={deliveryActionButton(theme.red)}
+                    >
+                      Reject
+                    </button>
+                  </>
                 )}
 
                 {app.status === "suspended" && (
@@ -6866,6 +6880,32 @@ function AdminDeliveryApplicationsPage({
                   >
                     Reactivate
                   </button>
+                )}
+
+                {app.status === "rejected" && (
+                  <p
+                    style={{
+                      color: theme.muted,
+                      fontWeight: 850,
+                      lineHeight: 1.5,
+                      margin: 0,
+                    }}
+                  >
+                    Application rejected. No further action available.
+                  </p>
+                )}
+
+                {app.status === "withdrawn" && (
+                  <p
+                    style={{
+                      color: theme.muted,
+                      fontWeight: 850,
+                      lineHeight: 1.5,
+                      margin: 0,
+                    }}
+                  >
+                    Application withdrawn by applicant.
+                  </p>
                 )}
               </div>
             </div>

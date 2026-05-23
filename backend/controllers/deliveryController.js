@@ -334,7 +334,7 @@ const adminListDeliveryInvites = async (req, res) => {
       return res.status(403).json({ success: false, message: "Admin access required" });
     }
 
-    const invites = await DeliveryAccessInvite.find({})
+    const invites = await DeliveryAccessInvite.find({ status: "active" })
       .populate("invitedBy", "name email")
       .sort({ createdAt: -1 });
 
@@ -356,11 +356,9 @@ const adminRemoveDeliveryInvite = async (req, res) => {
       return res.status(404).json({ success: false, message: "Invite not found" });
     }
 
-    invite.status = "revoked";
-    invite.revokedAt = new Date();
-    await invite.save();
+    await DeliveryAccessInvite.deleteOne({ _id: invite._id });
 
-    res.status(200).json({ success: true, message: "Delivery access email removed", invite });
+    res.status(200).json({ success: true, message: "Delivery access email removed" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
