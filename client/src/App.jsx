@@ -1799,6 +1799,7 @@ export default function App() {
         openAdminOrders={openAdminOrders}
         openDeliveryApplications={openDeliveryApplications}
         openDeliveryDashboard={openDeliveryDashboard}
+        isApprovedDeliveryPartner={isApprovedDeliveryPartner}
       />
 
       <MobileBottomBar
@@ -1810,6 +1811,7 @@ export default function App() {
         openAdminOrders={openAdminOrders}
         openDeliveryApplications={openDeliveryApplications}
         openDeliveryDashboard={openDeliveryDashboard}
+        isApprovedDeliveryPartner={isApprovedDeliveryPartner}
       />
 
       {page === "home" && (
@@ -3160,6 +3162,7 @@ function SubNavbar({
   openAdminOrders,
   openDeliveryApplications,
   openDeliveryDashboard,
+  isApprovedDeliveryPartner,
 }) {
   const navItems = [
     {
@@ -3194,15 +3197,17 @@ function SubNavbar({
       action: openMyOrders,
     });
 
-    navItems.push({
-      label: "🚚 Delivery Partner",
-      action: () => setPage("deliveryApply"),
-    });
+    if (isAdmin || isApprovedDeliveryPartner) {
+      navItems.push({
+        label: "🚚 Delivery Partner",
+        action: () => setPage("deliveryApply"),
+      });
 
-    navItems.push({
-      label: "🛵 Delivery Dashboard",
-      action: openDeliveryDashboard,
-    });
+      navItems.push({
+        label: "🛵 Delivery Dashboard",
+        action: openDeliveryDashboard,
+      });
+    }
   }
 
   if (isAdmin) {
@@ -3260,7 +3265,7 @@ function SubNavbar({
 }
 
 
-function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders, openDeliveryApplications, openDeliveryDashboard }) {
+function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders, openDeliveryApplications, openDeliveryDashboard, isApprovedDeliveryPartner }) {
   return (
     <div className="mobileBottomBar">
       <button onClick={() => setPage("home")}>
@@ -3278,9 +3283,17 @@ function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, open
         <span>{user ? "Orders" : "Login"}</span>
       </button>
 
-      <button onClick={isAdmin ? openDeliveryApplications : user ? openDeliveryDashboard : () => setPage("home")}>
-        <span>{isAdmin ? "🚚" : user ? "🛵" : "🔥"}</span>
-        <span>{isAdmin ? "Delivery" : user ? "Deliver" : "Shop"}</span>
+      <button
+        onClick={
+          isAdmin
+            ? openDeliveryApplications
+            : isApprovedDeliveryPartner
+            ? openDeliveryDashboard
+            : () => setPage("home")
+        }
+      >
+        <span>{isAdmin ? "🚚" : isApprovedDeliveryPartner ? "🛵" : "🔥"}</span>
+        <span>{isAdmin ? "Delivery" : isApprovedDeliveryPartner ? "Deliver" : "Shop"}</span>
       </button>
     </div>
   );
