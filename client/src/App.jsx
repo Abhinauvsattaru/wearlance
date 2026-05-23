@@ -3208,6 +3208,27 @@ function GlobalStyles() {
         }
       }
 
+
+      @media (max-width: 900px) {
+        .adminOrderStats {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+
+        .adminOrderFilters {
+          grid-template-columns: 1fr !important;
+        }
+
+        .adminOrderMiniGrid {
+          grid-template-columns: 1fr !important;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .adminOrderStats {
+          grid-template-columns: 1fr !important;
+        }
+      }
+
     `}</style>
   );
 }
@@ -5487,6 +5508,89 @@ function AdminOrdersPage({
   assignDeliveryPartnerToOrder,
   fetchDeliveryApplications,
 }) {
+  const [orderSearch, setOrderSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [assignmentFilter, setAssignmentFilter] = useState("All");
+  const [partnerFilter, setPartnerFilter] = useState("All");
+
+  const orderStatusOptions = useMemo(() => {
+    const unique = Array.from(
+      new Set(orders.map((order) => order.orderStatus).filter(Boolean))
+    );
+
+    return ["All", ...unique];
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    const query = orderSearch.trim().toLowerCase();
+
+    return orders.filter((order) => {
+      const partnerId =
+        order.assignedDeliveryPartner?._id ||
+        order.assignedDeliveryPartner ||
+        "";
+
+      const partnerName =
+        order.assignedDeliveryPartner?.name ||
+        order.assignedDeliveryPartner?.email ||
+        "";
+
+      const haystack = [
+        order._id,
+        order.user?.name,
+        order.user?.email,
+        order.shippingAddress?.fullName,
+        order.shippingAddress?.phone,
+        order.shippingAddress?.city,
+        order.shippingAddress?.state,
+        order.orderStatus,
+        partnerName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !query || haystack.includes(query);
+      const matchesStatus =
+        statusFilter === "All" || order.orderStatus === statusFilter;
+      const hasPartner = Boolean(partnerId);
+      const matchesAssignment =
+        assignmentFilter === "All" ||
+        (assignmentFilter === "Assigned" && hasPartner) ||
+        (assignmentFilter === "Unassigned" && !hasPartner);
+      const matchesPartner =
+        partnerFilter === "All" || String(partnerId) === String(partnerFilter);
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesAssignment &&
+        matchesPartner
+      );
+    });
+  }, [orders, orderSearch, statusFilter, assignmentFilter, partnerFilter]);
+
+  const totalRevenue = orders.reduce(
+    (sum, order) => sum + Number(order.totalPrice || 0),
+    0
+  );
+  const assignedCount = orders.filter(
+    (order) => order.assignedDeliveryPartner
+  ).length;
+  const unassignedCount = orders.length - assignedCount;
+  const pendingDeliveryCount = orders.filter((order) =>
+    ["Processing", "Packed", "Shipped", "Out for Delivery", "Delivery Verification Pending"].includes(
+      order.orderStatus
+    )
+  ).length;
+
+  const clearFilters = () => {
+    setOrderSearch("");
+    setStatusFilter("All");
+    setAssignmentFilter("All");
+    setPartnerFilter("All");
+  };
+
   return (
     <main
       style={{
@@ -5501,6 +5605,7 @@ function AdminOrdersPage({
           justifyContent: "space-between",
           gap: 16,
           flexWrap: "wrap",
+          alignItems: "end",
         }}
       >
         <div>
@@ -5517,31 +5622,163 @@ function AdminOrdersPage({
               color: theme.muted,
             }}
           >
-            Manage all customer orders and delivery status.
+            Assign delivery partners faster, filter orders, and track fulfillment.
           </p>
         </div>
 
-        <button
-          onClick={fetchAdminOrders}
-          style={{
-            height: 46,
-            background: theme.blue,
-            color: "#fff",
-            border: "none",
-            borderRadius: 13,
-            padding: "0 18px",
-            fontWeight: 950,
-            cursor: "pointer",
-          }}
-        >
-          Refresh Orders
-        </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={fetchDeliveryApplications}
+            style={{
+              height: 46,
+              background: theme.panel,
+              color: theme.text,
+              border: `1px solid ${theme.border}`,
+              borderRadius: 13,
+              padding: "0 18px",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            Refresh Partners
+          </button>
+
+          <button
+            onClick={fetchAdminOrders}
+            style={{
+              height: 46,
+              background: theme.blue,
+              color: "#fff",
+              border: "none",
+              borderRadius: 13,
+              padding: "0 18px",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            Refresh Orders
+          </button>
+        </div>
       </div>
+
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: 14,
+          margin: "24px 0",
+        }}
+        className="adminOrderStats"
+      >
+        <AdminMetricCard theme={theme} label="Total Orders" value={orders.length} />
+        <AdminMetricCard theme={theme} label="Assigned" value={assignedCount} />
+        <AdminMetricCard theme={theme} label="Unassigned" value={unassignedCount} />
+        <AdminMetricCard
+          theme={theme}
+          label="Revenue"
+          value={`₹${totalRevenue.toLocaleString("en-IN")}`}
+        />
+      </section>
+
+      <section
+        style={{
+          background: theme.panel,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 22,
+          padding: 18,
+          marginBottom: 22,
+          boxShadow:
+            theme.bg === "#07111f"
+              ? "0 12px 28px rgba(0,0,0,0.25)"
+              : "0 10px 26px rgba(15,23,42,0.07)",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.4fr repeat(3, minmax(150px, 1fr)) auto",
+            gap: 12,
+            alignItems: "center",
+          }}
+          className="adminOrderFilters"
+        >
+          <input
+            value={orderSearch}
+            onChange={(e) => setOrderSearch(e.target.value)}
+            placeholder="Search order, customer, city, phone, partner..."
+            style={formControl(theme)}
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={formControl(theme)}
+          >
+            {orderStatusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status === "All" ? "All Statuses" : status}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={assignmentFilter}
+            onChange={(e) => setAssignmentFilter(e.target.value)}
+            style={formControl(theme)}
+          >
+            <option value="All">All Assignment</option>
+            <option value="Assigned">Assigned</option>
+            <option value="Unassigned">Unassigned</option>
+          </select>
+
+          <select
+            value={partnerFilter}
+            onChange={(e) => setPartnerFilter(e.target.value)}
+            onFocus={fetchDeliveryApplications}
+            style={formControl(theme)}
+          >
+            <option value="All">All Partners</option>
+            {deliveryPartners.map((partner) => (
+              <option key={partner._id} value={partner._id}>
+                {partner.name} · {partner.city}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            style={{
+              border: "none",
+              background: theme.orange2,
+              color: "#fff",
+              borderRadius: 13,
+              padding: "13px 16px",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            Clear
+          </button>
+        </div>
+
+        <p style={{ color: theme.muted, margin: "12px 0 0", fontWeight: 800 }}>
+          Showing {filteredOrders.length} of {orders.length} orders · Pending delivery flow:{" "}
+          {pendingDeliveryCount}
+        </p>
+      </section>
 
       {loadingOrders && <InfoBox theme={theme} text="Loading admin orders..." />}
 
-      {!loadingOrders && orders.length === 0 && (
-        <InfoBox theme={theme} text="No orders received yet." />
+      {!loadingOrders && filteredOrders.length === 0 && (
+        <InfoBox
+          theme={theme}
+          text={
+            orders.length === 0
+              ? "No orders received yet."
+              : "No orders match these filters."
+          }
+        />
       )}
 
       <div
@@ -5550,7 +5787,7 @@ function AdminOrdersPage({
           gap: 18,
         }}
       >
-        {orders.map((order) => (
+        {filteredOrders.map((order) => (
           <OrderCard
             key={order._id}
             theme={theme}
@@ -5565,6 +5802,34 @@ function AdminOrdersPage({
         ))}
       </div>
     </main>
+  );
+}
+
+function AdminMetricCard({ theme, label, value }) {
+  return (
+    <div
+      style={{
+        background: theme.panel,
+        border: `1px solid ${theme.border}`,
+        borderRadius: 20,
+        padding: 18,
+        boxShadow:
+          theme.bg === "#07111f"
+            ? "0 12px 28px rgba(0,0,0,0.25)"
+            : "0 10px 26px rgba(15,23,42,0.07)",
+      }}
+    >
+      <p
+        style={{
+          color: theme.muted,
+          fontWeight: 850,
+          margin: "0 0 8px",
+        }}
+      >
+        {label}
+      </p>
+      <h2 style={{ margin: 0, fontSize: 30 }}>{value}</h2>
+    </div>
   );
 }
 
@@ -5727,6 +5992,70 @@ function OrderCard({
           </p>
         </div>
       </div>
+
+      {adminView && (
+        <div
+          style={{
+            marginBottom: 14,
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: 12,
+          }}
+          className="adminOrderMiniGrid"
+        >
+          <div
+            style={{
+              border: `1px solid ${theme.border}`,
+              background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+              borderRadius: 16,
+              padding: 13,
+            }}
+          >
+            <strong>Customer</strong>
+            <p style={{ margin: "5px 0 0", color: theme.muted }}>
+              {order.shippingAddress?.fullName || order.user?.name || "Customer"}
+            </p>
+          </div>
+
+          <div
+            style={{
+              border: `1px solid ${theme.border}`,
+              background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+              borderRadius: 16,
+              padding: 13,
+            }}
+          >
+            <strong>Location</strong>
+            <p style={{ margin: "5px 0 0", color: theme.muted }}>
+              {order.shippingAddress?.city || "City"} · {order.shippingAddress?.pincode || "PIN"}
+            </p>
+          </div>
+
+          <div
+            style={{
+              border: `1px solid ${theme.border}`,
+              background: order.assignedDeliveryPartner
+                ? "rgba(22,163,74,0.09)"
+                : "rgba(251,100,27,0.10)",
+              borderRadius: 16,
+              padding: 13,
+            }}
+          >
+            <strong>Delivery Partner</strong>
+            <p
+              style={{
+                margin: "5px 0 0",
+                color: order.assignedDeliveryPartner ? theme.green : theme.orange2,
+                fontWeight: 900,
+              }}
+            >
+              {order.assignedDeliveryPartner?.name ||
+                order.assignedDeliveryPartner?.email ||
+                "Not assigned"}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div
         style={{
