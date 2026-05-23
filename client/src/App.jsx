@@ -12,6 +12,12 @@ const INVOICE_API = `${API_BASE}/api/invoices`;
 const REVIEW_API = `${API_BASE}/api/reviews`;
 const DELIVERY_API = `${API_BASE}/api/delivery`;
 
+const WEARLANCE_PHONE = "8523813819";
+const WEARLANCE_EMAIL = "abhinauv22@gmail.com";
+const WEARLANCE_ADDRESS = "Tekkali, Srikakulam, Andhra Pradesh";
+const WEARLANCE_WHATSAPP = "https://wa.me/918523813819?text=Hi%20Wearlance%2C%20I%20need%20help%20with%20my%20order.";
+
+
 const ADMIN_EMAILS = [
   "abhinauv22@gmail.com",
   "abhinauvo5s@gmail.com",
@@ -2401,9 +2407,173 @@ export default function App() {
         closeModal={() => setOtpModalType("")}
       />
 
+      <SiteFooter theme={theme} setPage={setPage} />
+
+      <FloatingContactButtons />
+
       {toast && <Toast message={toast} />}
     </div>
   );
+}
+
+
+
+function FloatingContactButtons() {
+  return (
+    <div
+      className="floatingContactButtons"
+      style={{
+        position: "fixed",
+        right: 18,
+        bottom: 88,
+        display: "grid",
+        gap: 10,
+        zIndex: 80,
+      }}
+    >
+      <a
+        href={WEARLANCE_WHATSAPP}
+        target="_blank"
+        rel="noreferrer"
+        title="WhatsApp Wearlance"
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 999,
+          display: "grid",
+          placeItems: "center",
+          background: "#16a34a",
+          color: "#fff",
+          textDecoration: "none",
+          fontSize: 24,
+          boxShadow: "0 12px 30px rgba(22,163,74,0.35)",
+        }}
+      >
+        💬
+      </a>
+
+      <a
+        href={`tel:+91${WEARLANCE_PHONE}`}
+        title="Call Wearlance"
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 999,
+          display: "grid",
+          placeItems: "center",
+          background: "#2874f0",
+          color: "#fff",
+          textDecoration: "none",
+          fontSize: 24,
+          boxShadow: "0 12px 30px rgba(40,116,240,0.35)",
+        }}
+      >
+        📞
+      </a>
+    </div>
+  );
+}
+
+function SiteFooter({ theme, setPage }) {
+  return (
+    <footer
+      style={{
+        marginTop: 40,
+        padding: "36px 24px 96px",
+        background: theme.bg === "#07111f" ? "#0b1220" : "#111827",
+        color: "#fff",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1280,
+          margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: "1.2fr 1fr 1fr",
+          gap: 24,
+        }}
+        className="footerGrid"
+      >
+        <div>
+          <h2 style={{ margin: "0 0 8px", color: "#ff9800" }}>WEARLANCE</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            Every Style ₹399. A fixed-price fashion marketplace currently running
+            a focused COD beta for selected real users.
+          </p>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            Address: {WEARLANCE_ADDRESS}
+          </p>
+        </div>
+
+        <div>
+          <h3 style={{ marginTop: 0 }}>Customer Help</h3>
+          <button onClick={() => setPage("support")} style={footerLinkButton()}>
+            Support
+          </button>
+          <button onClick={() => setPage("policy")} style={footerLinkButton()}>
+            COD & Return Policy
+          </button>
+          <button onClick={() => setPage("myOrders")} style={footerLinkButton()}>
+            My Orders
+          </button>
+        </div>
+
+        <div>
+          <h3 style={{ marginTop: 0 }}>Contact</h3>
+          <a href={`tel:+91${WEARLANCE_PHONE}`} style={footerAnchor()}>
+            📞 +91 {WEARLANCE_PHONE}
+          </a>
+          <a
+            href={`mailto:${WEARLANCE_EMAIL}?subject=Wearlance Support Request`}
+            style={footerAnchor()}
+          >
+            ✉️ {WEARLANCE_EMAIL}
+          </a>
+          <a href={WEARLANCE_WHATSAPP} target="_blank" rel="noreferrer" style={footerAnchor()}>
+            💬 WhatsApp Support
+          </a>
+        </div>
+      </div>
+
+      <div
+        style={{
+          maxWidth: 1280,
+          margin: "24px auto 0",
+          paddingTop: 18,
+          borderTop: "1px solid rgba(255,255,255,0.12)",
+          color: "#94a3b8",
+          fontSize: 13,
+          lineHeight: 1.6,
+        }}
+      >
+        © {new Date().getFullYear()} Wearlance. Early COD beta. Share delivery OTP only after receiving the product.
+      </div>
+    </footer>
+  );
+}
+
+function footerLinkButton() {
+  return {
+    display: "block",
+    border: "none",
+    background: "transparent",
+    color: "#cbd5e1",
+    padding: "6px 0",
+    fontWeight: 850,
+    cursor: "pointer",
+    textAlign: "left",
+  };
+}
+
+function footerAnchor() {
+  return {
+    display: "block",
+    color: "#cbd5e1",
+    textDecoration: "none",
+    padding: "6px 0",
+    fontWeight: 850,
+    overflowWrap: "anywhere",
+  };
 }
 
 
@@ -3309,6 +3479,21 @@ function GlobalStyles() {
         .supportContactGrid,
         .supportInfoGrid {
           grid-template-columns: 1fr !important;
+        }
+      }
+
+
+      @media (max-width: 820px) {
+        .supportContactGrid,
+        .supportInfoGrid,
+        .policyGrid,
+        .footerGrid {
+          grid-template-columns: 1fr !important;
+        }
+
+        .floatingContactButtons {
+          right: 12px !important;
+          bottom: 84px !important;
         }
       }
 
@@ -6839,26 +7024,32 @@ function SupportPage({ theme, setPage }) {
   const contactCards = [
     {
       icon: "📞",
-      title: "Call Support",
-      value: "+91 8523813819",
-      note: "For COD order confirmation, delivery questions, and urgent help.",
+      title: "Call Wearlance",
+      value: `+91 ${WEARLANCE_PHONE}`,
+      note: "Best for urgent COD confirmation, delivery timing, and address correction.",
+      action: `tel:+91${WEARLANCE_PHONE}`,
+      actionLabel: "Call Now",
+    },
+    {
+      icon: "💬",
+      title: "WhatsApp Support",
+      value: "Quick chat support",
+      note: "Message us for order help, delivery updates, product questions, and returns.",
+      action: WEARLANCE_WHATSAPP,
+      actionLabel: "Open WhatsApp",
     },
     {
       icon: "✉️",
       title: "Email Support",
-      value: "abhinauv22@gmail.com",
-      note: "For order issues, delivery updates, returns, and account help.",
-    },
-    {
-      icon: "📍",
-      title: "Service Address",
-      value: "Tekkali, Srikakulam, Andhra Pradesh",
-      note: "Wearlance is starting with focused local delivery support.",
+      value: WEARLANCE_EMAIL,
+      note: "Use email for detailed issues, return requests, and account support.",
+      action: `mailto:${WEARLANCE_EMAIL}?subject=Wearlance Support Request`,
+      actionLabel: "Send Email",
     },
   ];
 
   return (
-    <main style={{ maxWidth: 1050, margin: "0 auto", padding: "38px 24px 96px" }}>
+    <main style={{ maxWidth: 1120, margin: "0 auto", padding: "38px 24px 96px" }}>
       <button
         onClick={() => setPage("home")}
         style={{
@@ -6877,7 +7068,7 @@ function SupportPage({ theme, setPage }) {
         style={{
           background: theme.panel,
           border: `1px solid ${theme.border}`,
-          borderRadius: 28,
+          borderRadius: 30,
           overflow: "hidden",
           boxShadow:
             theme.bg === "#07111f"
@@ -6887,7 +7078,7 @@ function SupportPage({ theme, setPage }) {
       >
         <div
           style={{
-            padding: "34px 30px",
+            padding: "38px 30px",
             background: "linear-gradient(135deg,#111827,#2874f0,#fb641b)",
             color: "#fff",
           }}
@@ -6907,24 +7098,24 @@ function SupportPage({ theme, setPage }) {
           <h1
             style={{
               margin: "12px 0",
-              fontSize: 42,
+              fontSize: 44,
               lineHeight: 1.05,
             }}
           >
-            We are here to help
+            Support for real customers
           </h1>
 
           <p
             style={{
               margin: 0,
-              maxWidth: 760,
+              maxWidth: 820,
               lineHeight: 1.7,
               opacity: 0.94,
               fontSize: 16,
             }}
           >
-            Contact Wearlance for order confirmation, delivery updates, address
-            correction, product support, and return-related help.
+            Get help with COD confirmation, delivery updates, address correction,
+            order tracking, product support, and return-related queries.
           </p>
         </div>
 
@@ -6959,9 +7150,24 @@ function SupportPage({ theme, setPage }) {
                 >
                   {card.value}
                 </p>
-                <p style={{ color: theme.muted, lineHeight: 1.6, marginBottom: 0 }}>
-                  {card.note}
-                </p>
+                <p style={{ color: theme.muted, lineHeight: 1.6 }}>{card.note}</p>
+
+                <a
+                  href={card.action}
+                  target={card.action.startsWith("http") ? "_blank" : undefined}
+                  rel={card.action.startsWith("http") ? "noreferrer" : undefined}
+                  style={{
+                    display: "inline-flex",
+                    textDecoration: "none",
+                    borderRadius: 13,
+                    padding: "11px 14px",
+                    background: theme.orange2,
+                    color: "#fff",
+                    fontWeight: 950,
+                  }}
+                >
+                  {card.actionLabel}
+                </a>
               </div>
             ))}
           </div>
@@ -6988,7 +7194,7 @@ function SupportPage({ theme, setPage }) {
                 <li>Keep your order ID ready.</li>
                 <li>Use the same phone number entered during checkout.</li>
                 <li>For COD orders, keep your phone reachable for confirmation.</li>
-                <li>For delivery OTP, share it only after receiving the product.</li>
+                <li>Share delivery OTP only after receiving the product.</li>
               </ul>
             </div>
 
@@ -7000,11 +7206,13 @@ function SupportPage({ theme, setPage }) {
                 background: theme.bg === "#07111f" ? "#111827" : "#eff6ff",
               }}
             >
-              <h3 style={{ marginTop: 0 }}>Support timing</h3>
+              <h3 style={{ marginTop: 0 }}>Service location</h3>
               <p style={{ color: theme.muted, lineHeight: 1.7 }}>
-                Wearlance is currently in early real-user beta. Support and delivery
-                may begin with selected local areas first. We will confirm order and
-                delivery details before dispatching COD orders.
+                {WEARLANCE_ADDRESS}
+              </p>
+              <p style={{ color: theme.muted, lineHeight: 1.7 }}>
+                Wearlance is currently operating as an early real-user COD beta.
+                Delivery support may begin with selected local areas first.
               </p>
 
               <button
@@ -7032,8 +7240,51 @@ function SupportPage({ theme, setPage }) {
 
 
 function PolicyPage({ theme, setPage }) {
+  const policies = [
+    {
+      title: "COD order confirmation",
+      body:
+        "COD orders may be manually confirmed by Wearlance before delivery assignment. If the customer is unreachable, address is incomplete, or order appears fake, Wearlance may hold or cancel the order.",
+    },
+    {
+      title: "Shipping and delivery",
+      body:
+        "Delivery is currently available only in selected service areas during beta. Delivery timing depends on product availability, address clarity, and delivery partner availability.",
+    },
+    {
+      title: "Cancellation",
+      body:
+        "Customers can request cancellation before the order enters the delivery flow. Once the order is picked up, out for delivery, or OTP verification has started, cancellation is locked.",
+    },
+    {
+      title: "Returns",
+      body:
+        "Return requests are accepted only after delivery confirmation and must include a valid reason. Return approval depends on product condition, reason, and Wearlance admin review.",
+    },
+    {
+      title: "Delivery OTP safety",
+      body:
+        "Customers should share the delivery OTP only after receiving the product. The delivery partner cannot complete delivery without OTP verification.",
+    },
+    {
+      title: "Payments",
+      body:
+        "During COD beta, payment is collected at delivery. Online payments should be used only when Wearlance officially enables live payment mode.",
+    },
+    {
+      title: "Privacy",
+      body:
+        "Customer name, phone, email, and address are used only for order processing, delivery, support, and account-related communication.",
+    },
+    {
+      title: "Support",
+      body:
+        `For order, delivery, return, or account help, contact Wearlance at +91 ${WEARLANCE_PHONE} or ${WEARLANCE_EMAIL}.`,
+    },
+  ];
+
   return (
-    <main style={{ maxWidth: 950, margin: "0 auto", padding: "38px 24px 96px" }}>
+    <main style={{ maxWidth: 1050, margin: "0 auto", padding: "38px 24px 96px" }}>
       <button
         onClick={() => setPage("home")}
         style={{
@@ -7052,39 +7303,82 @@ function PolicyPage({ theme, setPage }) {
         style={{
           background: theme.panel,
           border: `1px solid ${theme.border}`,
-          borderRadius: 26,
-          padding: 26,
+          borderRadius: 28,
+          padding: 28,
           lineHeight: 1.7,
+          boxShadow:
+            theme.bg === "#07111f"
+              ? "0 16px 40px rgba(0,0,0,0.32)"
+              : "0 18px 45px rgba(15,23,42,0.10)",
         }}
       >
-        <h1 style={{ marginTop: 0 }}>COD, Cancellation & Return Policy</h1>
-
-        <h3>COD order confirmation</h3>
-        <p style={{ color: theme.muted }}>
-          COD orders may be confirmed by admin call/message before delivery partner assignment.
-          Fake or unreachable orders may be cancelled.
+        <p
+          style={{
+            margin: 0,
+            color: theme.orange2,
+            fontWeight: 950,
+            letterSpacing: 2,
+            fontSize: 12,
+          }}
+        >
+          WEARLANCE CUSTOMER POLICY
         </p>
 
-        <h3>Cancellation</h3>
-        <p style={{ color: theme.muted }}>
-          Customers can cancel before the order enters delivery flow. Cancellation is locked after
-          pickup/out-for-delivery stages.
+        <h1 style={{ margin: "10px 0 8px", fontSize: 40 }}>
+          COD, Delivery, Return & Privacy Policy
+        </h1>
+
+        <p style={{ color: theme.muted, maxWidth: 820 }}>
+          These policies are written for the early real-user COD beta of Wearlance.
+          They help customers understand how orders, delivery, cancellations, and
+          support are handled.
         </p>
 
-        <h3>Returns</h3>
-        <p style={{ color: theme.muted }}>
-          Returns are available only after delivery confirmation and require a valid reason.
-          Final approval is handled by Wearlance admin.
-        </p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 14,
+            marginTop: 24,
+          }}
+          className="policyGrid"
+        >
+          {policies.map((policy) => (
+            <div
+              key={policy.title}
+              style={{
+                border: `1px solid ${theme.border}`,
+                borderRadius: 20,
+                padding: 18,
+                background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>{policy.title}</h3>
+              <p style={{ color: theme.muted, marginBottom: 0 }}>{policy.body}</p>
+            </div>
+          ))}
+        </div>
 
-        <h3>Fixed price</h3>
-        <p style={{ color: theme.muted }}>
-          Wearlance currently follows a fixed ₹399 product pricing model during beta.
-        </p>
+        <div
+          style={{
+            marginTop: 22,
+            border: `1px solid ${theme.border}`,
+            borderRadius: 20,
+            padding: 18,
+            background: theme.bg === "#07111f" ? "#111827" : "#fff7ed",
+          }}
+        >
+          <strong>Important:</strong>
+          <p style={{ color: theme.muted, marginBottom: 0 }}>
+            Wearlance is currently improving and testing operations with selected
+            real users. Policies may be updated as the service expands.
+          </p>
+        </div>
       </section>
     </main>
   );
 }
+
 
 function DeliveryDashboardPage({
   theme,
