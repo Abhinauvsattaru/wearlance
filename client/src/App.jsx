@@ -94,6 +94,7 @@ export default function App() {
   const [placingOrder, setPlacingOrder] = useState(false);
 
   const [deliveryApplication, setDeliveryApplication] = useState(null);
+  const [deliveryCanApply, setDeliveryCanApply] = useState(false);
   const [deliveryApplications, setDeliveryApplications] = useState([]);
   const [deliveryLogs, setDeliveryLogs] = useState([]);
   const [deliveryInvites, setDeliveryInvites] = useState([]);
@@ -126,6 +127,9 @@ export default function App() {
   const isApprovedDeliveryPartner =
     deliveryApplication?.status === "approved" &&
     deliveryApplication?.isActive !== false;
+
+  const isDeliveryAccessAllowed =
+    Boolean(isAdmin) || Boolean(isApprovedDeliveryPartner) || Boolean(deliveryCanApply);
 
   const [loginForm, setLoginForm] = useState({
     email: "",
@@ -218,6 +222,7 @@ export default function App() {
       fetchMyDeliveryApplication();
     } else {
       setDeliveryApplication(null);
+      setDeliveryCanApply(false);
     }
   }, [user, token]);
 
@@ -1331,6 +1336,7 @@ export default function App() {
 
       if (data.success) {
         setDeliveryApplication(data.application);
+        setDeliveryCanApply(Boolean(data.canApply || data.application));
       }
     } catch (error) {
       console.error(error);
@@ -1804,6 +1810,7 @@ export default function App() {
         openDeliveryApplications={openDeliveryApplications}
         openDeliveryDashboard={openDeliveryDashboard}
         isApprovedDeliveryPartner={isApprovedDeliveryPartner}
+        isDeliveryAccessAllowed={isDeliveryAccessAllowed}
       />
 
       <MobileBottomBar
@@ -1816,6 +1823,7 @@ export default function App() {
         openDeliveryApplications={openDeliveryApplications}
         openDeliveryDashboard={openDeliveryDashboard}
         isApprovedDeliveryPartner={isApprovedDeliveryPartner}
+        isDeliveryAccessAllowed={isDeliveryAccessAllowed}
       />
 
       {page === "home" && (
@@ -3167,6 +3175,7 @@ function SubNavbar({
   openDeliveryApplications,
   openDeliveryDashboard,
   isApprovedDeliveryPartner,
+  isDeliveryAccessAllowed,
 }) {
   const navItems = [
     {
@@ -3201,12 +3210,14 @@ function SubNavbar({
       action: openMyOrders,
     });
 
-    if (isAdmin || isApprovedDeliveryPartner) {
+    if (isDeliveryAccessAllowed) {
       navItems.push({
         label: "🚚 Delivery Partner",
         action: () => setPage("deliveryApply"),
       });
+    }
 
+    if (isApprovedDeliveryPartner) {
       navItems.push({
         label: "🛵 Delivery Dashboard",
         action: openDeliveryDashboard,
@@ -3269,7 +3280,7 @@ function SubNavbar({
 }
 
 
-function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders, openDeliveryApplications, openDeliveryDashboard, isApprovedDeliveryPartner }) {
+function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders, openDeliveryApplications, openDeliveryDashboard, isApprovedDeliveryPartner, isDeliveryAccessAllowed }) {
   return (
     <div className="mobileBottomBar">
       <button onClick={() => setPage("home")}>
@@ -3293,11 +3304,13 @@ function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, open
             ? openDeliveryApplications
             : isApprovedDeliveryPartner
             ? openDeliveryDashboard
+            : isDeliveryAccessAllowed
+            ? () => setPage("deliveryApply")
             : () => setPage("home")
         }
       >
-        <span>{isAdmin ? "🚚" : isApprovedDeliveryPartner ? "🛵" : "🔥"}</span>
-        <span>{isAdmin ? "Delivery" : isApprovedDeliveryPartner ? "Deliver" : "Shop"}</span>
+        <span>{isAdmin ? "🚚" : isApprovedDeliveryPartner ? "🛵" : isDeliveryAccessAllowed ? "🚚" : "🔥"}</span>
+        <span>{isAdmin ? "Delivery" : isApprovedDeliveryPartner ? "Deliver" : isDeliveryAccessAllowed ? "Apply" : "Shop"}</span>
       </button>
     </div>
   );
