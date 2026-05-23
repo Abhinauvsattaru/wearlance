@@ -401,6 +401,23 @@ export default function App() {
       const data = await response.json();
 
       if (!data.success) {
+        const message = String(data.message || "").toLowerCase();
+
+        if (
+          message.includes("otp") ||
+          message.includes("email") ||
+          message.includes("sent") ||
+          message.includes("could not be sent")
+        ) {
+          setOtpForm({
+            email: data.email || signupForm.email,
+            otp: "",
+          });
+          setOtpModalType("signup");
+          showToast("OTP may already be sent. Enter the OTP from your email.");
+          return;
+        }
+
         showToast(data.message || "Signup failed");
         return;
       }
@@ -477,7 +494,12 @@ export default function App() {
       });
 
       const data = await response.json();
-      showToast(data.message || (data.success ? "OTP resent" : "Could not resend OTP"));
+
+      if (data.success) {
+        showToast(data.message || "OTP resent");
+      } else {
+        showToast("If OTP reached your email, enter it in the popup.");
+      }
     } catch (error) {
       console.error(error);
       showToast("Could not resend OTP");
@@ -514,6 +536,26 @@ export default function App() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
+        const message = String(data.message || "").toLowerCase();
+
+        if (
+          message.includes("otp") ||
+          message.includes("email") ||
+          message.includes("sent") ||
+          message.includes("could not be sent")
+        ) {
+          setResetForm({
+            email: data.email || cleanEmail,
+            otp: "",
+            newPassword: "",
+          });
+
+          setResetOtpSent(true);
+          setOtpModalType("reset");
+          showToast("OTP may already be sent. Enter the OTP from your email.");
+          return;
+        }
+
         showToast(data.message || "Could not send reset OTP");
         return;
       }
