@@ -92,7 +92,15 @@ const restoreStockIfNeeded = async (order) => {
 
 const placeOrder = async (req, res) => {
   try {
-    const { orderItems, shippingAddress, paymentMethod } = req.body;
+    const { orderItems, shippingAddress } = req.body;
+    const paymentMethod = "COD";
+
+    if (req.body.paymentMethod && req.body.paymentMethod !== "COD") {
+      return res.status(400).json({
+        success: false,
+        message: "Online payment is temporarily disabled. Please use Cash on Delivery.",
+      });
+    }
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({

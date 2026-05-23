@@ -5436,13 +5436,25 @@ function CheckoutPage({
               Payment Method
             </span>
             <select
-              value={checkoutForm.paymentMethod}
-              onChange={(e) => updateField("paymentMethod", e.target.value)}
+              value="COD"
+              onChange={() => updateField("paymentMethod", "COD")}
               style={formControl(theme)}
             >
               <option value="COD">Cash on Delivery</option>
-              <option value="Razorpay">Pay Online with Razorpay</option>
             </select>
+
+            <p
+              style={{
+                color: theme.muted,
+                fontSize: 13,
+                lineHeight: 1.6,
+                margin: "8px 0 0",
+              }}
+            >
+              Online payment is temporarily disabled during beta. Please place
+              your order using Cash on Delivery. Admin will confirm COD orders
+              before assigning delivery.
+            </p>
           </label>
 
           <button
@@ -5462,7 +5474,7 @@ function CheckoutPage({
               marginTop: 8,
             }}
           >
-            {placingOrder ? "Processing..." : checkoutForm.paymentMethod === "Razorpay" ? "Pay Online" : "Place COD Order"}
+            {placingOrder ? "Processing..." : "Place COD Order"}
           </button>
         </form>
       </section>
@@ -5472,7 +5484,7 @@ function CheckoutPage({
           theme={theme}
           cartCount={cartCount}
           cartTotal={cartTotal}
-          buttonLabel={checkoutForm.paymentMethod === "Razorpay" ? "Pay Online" : "Place COD Order"}
+          buttonLabel="Place COD Order"
           onClick={placeOrder}
           disabled={placingOrder}
         />
