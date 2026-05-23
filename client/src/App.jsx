@@ -123,6 +123,10 @@ export default function App() {
     (user.isAdmin ||
       ADMIN_EMAILS.includes(String(user.email || "").toLowerCase()));
 
+  const isApprovedDeliveryPartner =
+    deliveryApplication?.status === "approved" &&
+    deliveryApplication?.isActive !== false;
+
   const [loginForm, setLoginForm] = useState({
     email: "",
     password: "",
