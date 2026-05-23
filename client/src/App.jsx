@@ -2184,6 +2184,7 @@ export default function App() {
           deliveryForm={deliveryForm}
           setDeliveryForm={setDeliveryForm}
           deliveryApplication={deliveryApplication}
+          setDeliveryApplication={setDeliveryApplication}
           applyAsDeliveryPartner={applyAsDeliveryPartner}
           loadingDelivery={loadingDelivery}
           handleDrivingLicenseSelect={handleDrivingLicenseSelect}
@@ -6315,6 +6316,7 @@ function DeliveryApplyPage({
   deliveryForm,
   setDeliveryForm,
   deliveryApplication,
+  setDeliveryApplication,
   applyAsDeliveryPartner,
   loadingDelivery,
   handleDrivingLicenseSelect,
@@ -6523,7 +6525,7 @@ function DeliveryApplyPage({
                   </button>
                 )}
 
-                {["pending", "rejected"].includes(deliveryApplication.status) && (
+                {deliveryApplication.status === "pending" && (
                   <button
                     type="button"
                     onClick={withdrawDeliveryApplication}
@@ -6538,6 +6540,24 @@ function DeliveryApplyPage({
                     }}
                   >
                     Withdraw Application
+                  </button>
+                )}
+
+                {["rejected", "withdrawn"].includes(deliveryApplication.status) && (
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryApplication(null)}
+                    style={{
+                      border: "none",
+                      borderRadius: 13,
+                      padding: "12px 15px",
+                      background: theme.orange2,
+                      color: "#fff",
+                      fontWeight: 950,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Apply Again
                   </button>
                 )}
               </div>
@@ -6555,11 +6575,11 @@ function DeliveryApplyPage({
                 {deliveryApplication.status === "approved" &&
                   "Congratulations. Your delivery access is approved. You can now open Delivery Dashboard and download your approval PDF."}
                 {deliveryApplication.status === "rejected" &&
-                  "Your application was rejected. Contact Wearlance admin for clarification."}
+                  "Your application was rejected. If admin adds your email again, click Apply Again and resubmit your application."}
                 {deliveryApplication.status === "suspended" &&
                   "Your delivery access is suspended by admin."}
                 {deliveryApplication.status === "withdrawn" &&
-                  "You withdrew this application."}
+                  "You withdrew this application. If admin still allows your email, click Apply Again to resubmit."}
               </p>
             </div>
           ) : (

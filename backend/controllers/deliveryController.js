@@ -411,29 +411,56 @@ const applyAsDeliveryPartner = async (req, res) => {
 
     const existingApplication = await DeliveryPartner.findOne({ user: req.user._id });
 
+    let application;
+
     if (existingApplication) {
-      return res.status(400).json({
-        success: false,
-        message: `You already have a delivery application with status: ${existingApplication.status}`,
-        application: existingApplication,
+      if (!["rejected", "withdrawn"].includes(existingApplication.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `You already have a delivery application with status: ${existingApplication.status}`,
+          application: existingApplication,
+        });
+      }
+
+      existingApplication.name = req.user.name || existingApplication.name || "Wearlance User";
+      existingApplication.email = userEmail;
+      existingApplication.phone = phone;
+      existingApplication.city = city;
+      existingApplication.state = state || "";
+      existingApplication.pincode = pincode || "";
+      existingApplication.vehicleType = vehicleType || "Bike";
+      existingApplication.experience = experience || "";
+      existingApplication.drivingLicense = normalizedLicense;
+      existingApplication.noDrivingLicenseReason = hasLicenseUpload ? "" : reasonText;
+      existingApplication.status = "pending";
+      existingApplication.isActive = false;
+      existingApplication.rejectedBy = null;
+      existingApplication.rejectedAt = null;
+      existingApplication.suspendedBy = null;
+      existingApplication.suspendedAt = null;
+      existingApplication.withdrawnBy = null;
+      existingApplication.withdrawnAt = null;
+      existingApplication.withdrawReason = "";
+      existingApplication.activeSessionId = "";
+      existingApplication.sessionExpiresAt = null;
+      application = await existingApplication.save();
+    } else {
+      application = await DeliveryPartner.create({
+        user: req.user._id,
+        name: req.user.name || "Wearlance User",
+        email: userEmail,
+        phone,
+        city,
+        state: state || "",
+        pincode: pincode || "",
+        vehicleType: vehicleType || "Bike",
+        experience: experience || "",
+        drivingLicense: normalizedLicense,
+        noDrivingLicenseReason: hasLicenseUpload ? "" : reasonText,
+        status: "pending",
+        isActive: false,
       });
     }
-
-    const application = await DeliveryPartner.create({
-      user: req.user._id,
-      name: req.user.name || "Wearlance User",
-      email: userEmail,
-      phone,
-      city,
-      state: state || "",
-      pincode: pincode || "",
-      vehicleType: vehicleType || "Bike",
-      experience: experience || "",
-      drivingLicense: normalizedLicense,
-      noDrivingLicenseReason: hasLicenseUpload ? "" : reasonText,
-      status: "pending",
-      isActive: false,
-    });
 
     await writeDeliveryLog({
       req,
