@@ -146,6 +146,9 @@ const drawCertificatePdf = ({ res, partner, type }) => {
   const title = isApproval
     ? "DELIVERY PARTNER APPROVAL CERTIFICATE"
     : "DELIVERY APPLICATION CONFIRMATION";
+  const subtitle = isApproval
+    ? "Official approval document"
+    : "Application received document";
   const fileName = isApproval
     ? `wearlance-delivery-approval-${String(partner._id).slice(-8)}.pdf`
     : `wearlance-delivery-application-${String(partner._id).slice(-8)}.pdf`;
@@ -153,47 +156,138 @@ const drawCertificatePdf = ({ res, partner, type }) => {
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
 
-  const doc = new PDFDocument({ size: "A4", margin: 48 });
+  const doc = new PDFDocument({ size: "A4", margin: 0 });
   doc.pipe(res);
 
-  doc.rect(0, 0, doc.page.width, 116).fill("#111827");
-  doc.fillColor("#ff9900").fontSize(28).font("Helvetica-Bold").text("WEARLANCE", 48, 36);
-  doc.fillColor("#ffffff").fontSize(11).text("Every Style ₹399 · Delivery Partner Program", 48, 70);
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const left = 50;
+  const contentWidth = pageWidth - left * 2;
+  const navy = "#111827";
+  const orange = "#ff9900";
+  const blueGray = "#334155";
+  const muted = "#64748b";
+  const border = "#e2e8f0";
+  const success = "#16a34a";
+  const warning = "#fb641b";
 
-  doc.moveDown(4);
-  doc.fillColor("#111827").fontSize(20).font("Helvetica-Bold").text(title, { align: "center" });
-  doc.moveDown(1);
+  // Header
+  doc.rect(0, 0, pageWidth, 122).fill(navy);
+  doc.fillColor(orange).font("Helvetica-Bold").fontSize(30).text("WEARLANCE", left, 30);
+  doc
+    .fillColor("#ffffff")
+    .font("Helvetica-Bold")
+    .fontSize(10)
+    .text("Every Style Rs. 399  •  Delivery Partner Program", left, 66);
+  doc
+    .fillColor("#cbd5e1")
+    .font("Helvetica")
+    .fontSize(9)
+    .text(subtitle, left, 86);
 
-  doc.fontSize(12).font("Helvetica").fillColor("#334155");
+  // Title area
+  let y = 150;
+  doc.fillColor(navy).font("Helvetica-Bold").fontSize(19).text(title, left, y, {
+    width: contentWidth,
+    align: "center",
+  });
+
+  y += 42;
   const bodyText = isApproval
     ? `This certificate confirms that ${partner.name} has been approved as a Wearlance Delivery Partner after admin verification.`
     : `This document confirms that ${partner.name} has submitted an application to become a Wearlance Delivery Partner. The application is currently under verification.`;
-  doc.text(bodyText, { align: "center", lineGap: 5 });
 
-  doc.moveDown(2);
-  doc.roundedRect(70, doc.y, 455, 180, 14).strokeColor("#e5e7eb").lineWidth(1).stroke();
-  const startY = doc.y + 22;
-  doc.fillColor("#111827").font("Helvetica-Bold").fontSize(12).text("Applicant Details", 95, startY);
-  doc.font("Helvetica").fontSize(11).fillColor("#334155");
-  doc.text(`Name: ${partner.name}`, 95, startY + 32);
-  doc.text(`Email: ${partner.email}`, 95, startY + 56);
-  doc.text(`Phone: ${partner.phone}`, 95, startY + 80);
-  doc.text(`City: ${partner.city}${partner.state ? `, ${partner.state}` : ""}`, 95, startY + 104);
-  doc.text(`Vehicle Type: ${partner.vehicleType}`, 95, startY + 128);
-  doc.text(`Status: ${partner.status.toUpperCase()}`, 95, startY + 152);
+  doc.fillColor(blueGray).font("Helvetica").fontSize(11).text(bodyText, left + 25, y, {
+    width: contentWidth - 50,
+    align: "center",
+    lineGap: 5,
+  });
 
-  doc.y = startY + 210;
-  doc.fillColor(isApproval ? "#16a34a" : "#fb641b").font("Helvetica-Bold").fontSize(14);
-  doc.text(isApproval ? "Congratulations and welcome to Wearlance." : "Thank you for applying. Verification is in progress.", { align: "center" });
+  // Details card
+  y = 255;
+  const cardX = left;
+  const cardY = y;
+  const cardW = contentWidth;
+  const cardH = 235;
 
-  doc.moveDown(2);
-  doc.fillColor("#64748b").font("Helvetica").fontSize(10);
-  doc.text(`Generated on: ${new Date().toLocaleString("en-IN")}`, { align: "center" });
-  doc.text(`Reference ID: ${partner._id}`, { align: "center" });
+  doc.roundedRect(cardX, cardY, cardW, cardH, 16).fillAndStroke("#ffffff", border);
+  doc.fillColor(navy).font("Helvetica-Bold").fontSize(13).text("Applicant Details", cardX + 26, cardY + 24);
 
-  doc.moveDown(3);
-  doc.fillColor("#111827").font("Helvetica-Bold").fontSize(11).text("Wearlance Admin", { align: "right" });
-  doc.fillColor("#64748b").font("Helvetica").fontSize(9).text("Computer generated document", { align: "right" });
+  const labelX = cardX + 28;
+  const valueX = cardX + 155;
+  let rowY = cardY + 62;
+  const rowGap = 25;
+
+  const addRow = (label, value) => {
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(10).text(label, labelX, rowY, {
+      width: 105,
+    });
+    doc.fillColor(navy).font("Helvetica").fontSize(10).text(String(value || "Not provided"), valueX, rowY, {
+      width: cardW - 185,
+      ellipsis: true,
+    });
+    rowY += rowGap;
+  };
+
+  addRow("Name", partner.name);
+  addRow("Email", partner.email);
+  addRow("Phone", partner.phone);
+  addRow("City", `${partner.city}${partner.state ? `, ${partner.state}` : ""}`);
+  addRow("Vehicle Type", partner.vehicleType);
+  addRow("License", partner.drivingLicense?.fileName ? "Uploaded" : "Not uploaded");
+  addRow("Status", String(partner.status || "pending").toUpperCase());
+
+  if (partner.noDrivingLicenseReason) {
+    doc
+      .fillColor(muted)
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .text("No-license reason", labelX, rowY, { width: 120 });
+    doc
+      .fillColor(navy)
+      .font("Helvetica")
+      .fontSize(10)
+      .text(partner.noDrivingLicenseReason, valueX, rowY, {
+        width: cardW - 185,
+        lineGap: 3,
+      });
+  }
+
+  // Status note
+  y = cardY + cardH + 38;
+  doc.fillColor(isApproval ? success : warning).font("Helvetica-Bold").fontSize(14).text(
+    isApproval
+      ? "Congratulations. You are approved for the Wearlance Delivery Partner Program."
+      : "Thank you for applying. Verification is currently in progress.",
+    left + 25,
+    y,
+    {
+      width: contentWidth - 50,
+      align: "center",
+      lineGap: 5,
+    }
+  );
+
+  y += 58;
+  doc.fillColor(muted).font("Helvetica").fontSize(9).text(`Generated on: ${new Date().toLocaleString("en-IN")}`, left, y, {
+    width: contentWidth,
+    align: "center",
+  });
+  doc.text(`Reference ID: ${partner._id}`, left, y + 14, {
+    width: contentWidth,
+    align: "center",
+  });
+
+  // Footer
+  doc.moveTo(left, pageHeight - 78).lineTo(pageWidth - left, pageHeight - 78).strokeColor(border).lineWidth(1).stroke();
+  doc.fillColor(navy).font("Helvetica-Bold").fontSize(10).text("Wearlance Admin", left, pageHeight - 60, {
+    width: contentWidth,
+    align: "right",
+  });
+  doc.fillColor(muted).font("Helvetica").fontSize(8).text("Computer generated document. No physical signature required.", left, pageHeight - 45, {
+    width: contentWidth,
+    align: "right",
+  });
 
   doc.end();
 };
