@@ -42,6 +42,49 @@ const isWearlanceAdmin = (user) => {
   );
 };
 
+const normalizeLicenseFile = (file = {}) => {
+  if (!file || !file.data) {
+    return {
+      fileName: "",
+      mimeType: "",
+      data: "",
+      uploadedAt: null,
+    };
+  }
+
+  const fileName = String(file.fileName || "driving-license").slice(0, 120);
+  const mimeType = String(file.mimeType || "").slice(0, 80);
+  const data = String(file.data || "");
+
+  const allowedMimeTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "application/pdf",
+  ];
+
+  if (!allowedMimeTypes.includes(mimeType)) {
+    throw new Error("Driving license must be JPG, PNG, WEBP, or PDF");
+  }
+
+  if (!data.startsWith("data:")) {
+    throw new Error("Invalid driving license file");
+  }
+
+  const approxBytes = Math.ceil((data.length * 3) / 4);
+
+  if (approxBytes > 2 * 1024 * 1024) {
+    throw new Error("Driving license file must be below 2MB");
+  }
+
+  return {
+    fileName,
+    mimeType,
+    data,
+    uploadedAt: new Date(),
+  };
+};
+
 const writeDeliveryLog = async ({
   req,
   order = null,
@@ -231,7 +274,7 @@ const adminRemoveDeliveryInvite = async (req, res) => {
 
 const applyAsDeliveryPartner = async (req, res) => {
   try {
-    const { phone, city, state, pincode, vehicleType, experience } = req.body;
+    const { phone, city, state, pincode, vehicleType, experience, drivingLicense, noDrivingLicenseReason } = req.body;
     const userEmail = normalizeEmail(req.user.email);
 
     const invite = await DeliveryAccessInvite.findOne({
@@ -251,6 +294,27 @@ const applyAsDeliveryPartner = async (req, res) => {
         success: false,
         message: "Phone and city are required to apply as delivery partner",
       });
+    }
+
+    const hasLicenseUpload = Boolean(drivingLicense && drivingLicense.data);
+    const reasonText = String(noDrivingLicenseReason || "").trim();
+
+    if (!hasLicenseUpload && reasonText.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: "Upload driving license or provide a clear reason for not uploading it",
+      });
+    }
+
+    let normalizedLicense = {
+      fileName: "",
+      mimeType: "",
+      data: "",
+      uploadedAt: null,
+    };
+
+    if (hasLicenseUpload) {
+      normalizedLicense = normalizeLicenseFile(drivingLicense);
     }
 
     const existingApplication = await DeliveryPartner.findOne({ user: req.user._id });
@@ -273,6 +337,8 @@ const applyAsDeliveryPartner = async (req, res) => {
       pincode: pincode || "",
       vehicleType: vehicleType || "Bike",
       experience: experience || "",
+      drivingLicense: normalizedLicense,
+      noDrivingLicenseReason: hasLicenseUpload ? "" : reasonText,
       status: "pending",
       isActive: false,
     });
@@ -294,6 +360,58 @@ const applyAsDeliveryPartner = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Delivery partner application submitted. Confirmation email sent.",
+      application,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+const withdrawMyDeliveryApplication = async (req, res) => {
+  try {
+    const application = await DeliveryPartner.findOne({ user: req.user._id });
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "No delivery application found",
+      });
+    }
+
+    if (application.status === "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Approved delivery access cannot be withdrawn here. Please contact admin.",
+      });
+    }
+
+    if (application.status === "withdrawn") {
+      return res.status(400).json({
+        success: false,
+        message: "Application is already withdrawn",
+      });
+    }
+
+    application.status = "withdrawn";
+    application.isActive = false;
+    application.withdrawnBy = req.user._id;
+    application.withdrawnAt = new Date();
+    application.withdrawReason = req.body.reason || "Withdrawn by applicant";
+
+    await application.save();
+
+    await writeDeliveryLog({
+      req,
+      deliveryPartner: application._id,
+      action: "DELIVERY_APPLICATION_WITHDRAWN",
+      result: "success",
+      note: application.withdrawReason,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery application withdrawn successfully",
       application,
     });
   } catch (error) {
@@ -487,6 +605,7 @@ module.exports = {
   adminListDeliveryInvites,
   adminRemoveDeliveryInvite,
   applyAsDeliveryPartner,
+  withdrawMyDeliveryApplication,
   getMyDeliveryApplication,
   listDeliveryApplications,
   approveDeliveryPartner,

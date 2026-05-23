@@ -5,6 +5,7 @@ const {
   adminListDeliveryInvites,
   adminRemoveDeliveryInvite,
   applyAsDeliveryPartner,
+  withdrawMyDeliveryApplication,
   getMyDeliveryApplication,
   listDeliveryApplications,
   approveDeliveryPartner,
@@ -20,6 +21,7 @@ const { protect } = require("../middleware/authMiddleware");
 const router = express.Router();
 
 router.post("/apply", protect, applyAsDeliveryPartner);
+router.put("/withdraw", protect, withdrawMyDeliveryApplication);
 router.get("/me", protect, getMyDeliveryApplication);
 router.get("/certificate/:type/:id", protect, downloadDeliveryCertificate);
 

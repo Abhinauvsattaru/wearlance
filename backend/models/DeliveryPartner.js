@@ -60,9 +60,36 @@ const deliveryPartnerSchema = new mongoose.Schema(
       trim: true,
     },
 
+    drivingLicense: {
+      fileName: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      mimeType: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      data: {
+        type: String,
+        default: "",
+      },
+      uploadedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
+    noDrivingLicenseReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "suspended"],
+      enum: ["pending", "approved", "rejected", "suspended", "withdrawn"],
       default: "pending",
       index: true,
     },
@@ -103,6 +130,23 @@ const deliveryPartnerSchema = new mongoose.Schema(
     suspendedAt: {
       type: Date,
       default: null,
+    },
+
+    withdrawnBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    withdrawnAt: {
+      type: Date,
+      default: null,
+    },
+
+    withdrawReason: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     activeSessionId: {

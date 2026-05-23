@@ -109,6 +109,8 @@ export default function App() {
     pincode: "",
     vehicleType: "Bike",
     experience: "",
+    drivingLicense: null,
+    noDrivingLicenseReason: "",
   });
 
   const [user, setUser] = useState(() =>
@@ -1343,6 +1345,98 @@ export default function App() {
     }
   };
 
+  const convertFileToDataUrl = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        resolve({
+          fileName: file.name,
+          mimeType: file.type,
+          data: reader.result,
+        });
+      };
+
+      reader.onerror = () => reject(new Error("Could not read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDrivingLicenseSelect = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+
+    if (!allowed.includes(file.type)) {
+      showToast("Driving license must be JPG, PNG, WEBP, or PDF");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      showToast("Driving license file must be below 2MB");
+      return;
+    }
+
+    try {
+      const converted = await convertFileToDataUrl(file);
+
+      setDeliveryForm((prev) => ({
+        ...prev,
+        drivingLicense: converted,
+        noDrivingLicenseReason: "",
+      }));
+
+      showToast("Driving license selected");
+    } catch (error) {
+      console.error(error);
+      showToast("Could not read driving license file");
+    }
+  };
+
+  const withdrawDeliveryApplication = async () => {
+    if (!token) {
+      showToast("Please login first");
+      setPage("login");
+      return;
+    }
+
+    const confirmWithdraw = window.confirm(
+      "Are you sure you want to withdraw your delivery partner application?"
+    );
+
+    if (!confirmWithdraw) return;
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${DELIVERY_API}/withdraw`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason: "Withdrawn by applicant" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not withdraw application");
+        return;
+      }
+
+      setDeliveryApplication(data.application);
+      showToast("Application withdrawn");
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while withdrawing application");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
   const applyAsDeliveryPartner = async (event) => {
     event.preventDefault();
 
@@ -1354,6 +1448,14 @@ export default function App() {
 
     if (!deliveryForm.phone || !deliveryForm.city) {
       showToast("Phone and city are required");
+      return;
+    }
+
+    if (
+      !deliveryForm.drivingLicense &&
+      !deliveryForm.noDrivingLicenseReason.trim()
+    ) {
+      showToast("Upload driving license or explain why you cannot upload it");
       return;
     }
 
@@ -1924,6 +2026,8 @@ export default function App() {
           deliveryApplication={deliveryApplication}
           applyAsDeliveryPartner={applyAsDeliveryPartner}
           loadingDelivery={loadingDelivery}
+          handleDrivingLicenseSelect={handleDrivingLicenseSelect}
+          withdrawDeliveryApplication={withdrawDeliveryApplication}
           downloadDeliveryCertificate={downloadDeliveryCertificate}
           setPage={setPage}
         />
@@ -6030,6 +6134,8 @@ function DeliveryApplyPage({
   deliveryApplication,
   applyAsDeliveryPartner,
   loadingDelivery,
+  handleDrivingLicenseSelect,
+  withdrawDeliveryApplication,
   downloadDeliveryCertificate,
   setPage,
 }) {
@@ -6231,6 +6337,24 @@ function DeliveryApplyPage({
                     Download Congratulations PDF
                   </button>
                 )}
+
+                {["pending", "rejected"].includes(deliveryApplication.status) && (
+                  <button
+                    type="button"
+                    onClick={withdrawDeliveryApplication}
+                    style={{
+                      border: "none",
+                      borderRadius: 13,
+                      padding: "12px 15px",
+                      background: theme.red,
+                      color: "#fff",
+                      fontWeight: 950,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Withdraw Application
+                  </button>
+                )}
               </div>
 
               <p
@@ -6249,6 +6373,8 @@ function DeliveryApplyPage({
                   "Your application was rejected. Contact Wearlance admin for clarification."}
                 {deliveryApplication.status === "suspended" &&
                   "Your delivery access is suspended by admin."}
+                {deliveryApplication.status === "withdrawn" &&
+                  "You withdrew this application."}
               </p>
             </div>
           ) : (
@@ -6347,6 +6473,59 @@ function DeliveryApplyPage({
                   <option>Walking</option>
                   <option>Other</option>
                 </select>
+              </div>
+
+              <div
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 18,
+                  padding: 16,
+                  background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+                }}
+              >
+                <h3 style={{ margin: "0 0 8px" }}>Driving License</h3>
+                <p style={{ margin: "0 0 12px", color: theme.muted, lineHeight: 1.6 }}>
+                  Upload your driving license as JPG, PNG, WEBP, or PDF below 2MB.
+                  If you cannot upload it now, explain the reason clearly.
+                </p>
+
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={handleDrivingLicenseSelect}
+                  style={fieldStyle}
+                />
+
+                {deliveryForm.drivingLicense?.fileName && (
+                  <p
+                    style={{
+                      color: theme.green,
+                      fontWeight: 950,
+                      marginBottom: 0,
+                    }}
+                  >
+                    Selected: {deliveryForm.drivingLicense.fileName}
+                  </p>
+                )}
+
+                {!deliveryForm.drivingLicense && (
+                  <textarea
+                    style={{
+                      ...fieldStyle,
+                      minHeight: 86,
+                      marginTop: 12,
+                      resize: "vertical",
+                    }}
+                    value={deliveryForm.noDrivingLicenseReason}
+                    onChange={(e) =>
+                      setDeliveryForm((prev) => ({
+                        ...prev,
+                        noDrivingLicenseReason: e.target.value,
+                      }))
+                    }
+                    placeholder="If not uploaded, write the reason here..."
+                  />
+                )}
               </div>
 
               <textarea
@@ -6628,6 +6807,19 @@ function AdminDeliveryApplicationsPage({
                 <p style={{ margin: 0, color: theme.muted }}>
                   Vehicle: <strong>{app.vehicleType}</strong>
                 </p>
+                <p style={{ margin: "6px 0 0", color: theme.muted }}>
+                  License:{" "}
+                  <strong>
+                    {app.drivingLicense?.fileName
+                      ? `Uploaded (${app.drivingLicense.fileName})`
+                      : "Not uploaded"}
+                  </strong>
+                </p>
+                {app.noDrivingLicenseReason && (
+                  <p style={{ margin: "6px 0 0", color: theme.orange2 }}>
+                    Reason: {app.noDrivingLicenseReason}
+                  </p>
+                )}
                 <p style={{ margin: "6px 0 0", color: theme.muted }}>
                   Delivered: {app.totalDelivered || 0} / Assigned: {app.totalAssigned || 0}
                 </p>
