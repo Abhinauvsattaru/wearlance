@@ -3,6 +3,8 @@ const express = require("express");
 const {
   registerUser,
   loginUser,
+  verifyDeliveryLoginOtp,
+  deliveryLogout,
   verifySignupOtp,
   resendSignupOtp,
   forgotPassword,
@@ -17,6 +19,10 @@ const router = express.Router();
 router.post("/register", registerUser);
 
 router.post("/login", loginUser);
+
+router.post("/verify-delivery-login-otp", verifyDeliveryLoginOtp);
+
+router.post("/delivery-logout", protect, deliveryLogout);
 
 router.post("/verify-signup-otp", verifySignupOtp);
 

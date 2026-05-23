@@ -12,6 +12,8 @@ const {
   rejectDeliveryPartner,
   suspendDeliveryPartner,
   reactivateDeliveryPartner,
+  updateDeliverySessionSettings,
+  forceDeliveryLogout,
   getDeliveryLogs,
   downloadDeliveryCertificate,
 } = require("../controllers/deliveryController");
@@ -34,6 +36,8 @@ router.put("/admin/:id/approve", protect, approveDeliveryPartner);
 router.put("/admin/:id/reject", protect, rejectDeliveryPartner);
 router.put("/admin/:id/suspend", protect, suspendDeliveryPartner);
 router.put("/admin/:id/reactivate", protect, reactivateDeliveryPartner);
+router.put("/admin/:id/session-settings", protect, updateDeliverySessionSettings);
+router.put("/admin/:id/force-logout", protect, forceDeliveryLogout);
 router.get("/admin/logs", protect, getDeliveryLogs);
 
 module.exports = router;

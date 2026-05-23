@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const DeliveryPartner = require("../models/DeliveryPartner");
 
 const protect = async (req, res, next) => {
   try {
@@ -31,6 +32,9 @@ const protect = async (req, res, next) => {
     }
 
     req.user = user;
+    req.auth = decoded;
+    req.deliverySessionId = decoded.deliverySessionId || "";
+    req.deliveryPartnerId = decoded.deliveryPartnerId || "";
     next();
   } catch (error) {
     return res.status(401).json({
@@ -51,7 +55,51 @@ const adminOnly = (req, res, next) => {
   }
 };
 
+const deliveryPartnerOnly = async (req, res, next) => {
+  try {
+    const partner = await DeliveryPartner.findOne({
+      user: req.user._id,
+      status: "approved",
+      isActive: true,
+    });
+
+    if (!partner) {
+      return res.status(403).json({
+        success: false,
+        message: "Approved delivery partner access only",
+      });
+    }
+
+    if (!req.deliverySessionId || partner.activeSessionId !== req.deliverySessionId) {
+      return res.status(401).json({
+        success: false,
+        message: "Delivery session expired or replaced. Please login again.",
+      });
+    }
+
+    if (!partner.sessionExpiresAt || new Date() > partner.sessionExpiresAt) {
+      partner.activeSessionId = "";
+      partner.sessionExpiresAt = null;
+      await partner.save();
+
+      return res.status(401).json({
+        success: false,
+        message: "Delivery session expired. Please login again.",
+      });
+    }
+
+    req.deliveryPartner = partner;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Delivery session verification failed",
+    });
+  }
+};
+
 module.exports = {
   protect,
   adminOnly,
+  deliveryPartnerOnly,
 };

@@ -373,6 +373,16 @@ export default function App() {
       const data = await response.json();
 
       if (!data.success) {
+        if (data.requiresDeliveryOtp && data.email) {
+          setOtpForm({
+            email: data.email,
+            otp: "",
+          });
+          setOtpModalType("deliveryLogin");
+          showToast(data.message || "Delivery login OTP sent");
+          return;
+        }
+
         if (data.requiresOtp && data.email) {
           setOtpForm({
             email: data.email,
@@ -393,6 +403,78 @@ export default function App() {
     } catch (error) {
       console.error(error);
       showToast("Backend error during login");
+    }
+  };
+
+  const verifyDeliveryLoginOtp = async (e) => {
+    e.preventDefault();
+
+    if (!otpForm.email || !otpForm.otp) {
+      showToast("Enter delivery login OTP");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${AUTH_API}/verify-delivery-login-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: otpForm.email,
+          otp: otpForm.otp,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Delivery OTP verification failed");
+        return;
+      }
+
+      saveLogin(data);
+      setOtpModalType("");
+      showToast("Delivery login verified");
+      setPage("deliveryDashboard");
+    } catch (error) {
+      console.error(error);
+      showToast("Delivery OTP verification failed");
+    }
+  };
+
+  const resendDeliveryLoginOtp = async () => {
+    if (!loginForm.email || !loginForm.password) {
+      showToast("Enter email and password again to resend OTP");
+      setOtpModalType("");
+      setPage("login");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${AUTH_API}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginForm),
+      });
+
+      const data = await response.json();
+
+      if (data.requiresDeliveryOtp) {
+        setOtpForm({
+          email: data.email || loginForm.email,
+          otp: "",
+        });
+        setOtpModalType("deliveryLogin");
+        showToast("Delivery OTP resent");
+      } else {
+        showToast(data.message || "Could not resend delivery OTP");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Could not resend delivery OTP");
     }
   };
 
@@ -1712,6 +1794,83 @@ export default function App() {
     }
   };
 
+  const updateDeliverySessionDuration = async (partnerId, sessionDurationHours) => {
+    if (!token || !isAdmin) {
+      showToast("Admin access required");
+      return;
+    }
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${DELIVERY_API}/admin/${partnerId}/session-settings`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ sessionDurationHours }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not update logout time");
+        return;
+      }
+
+      showToast("Delivery partner logout time updated");
+      await fetchDeliveryApplications();
+      await fetchDeliveryLogs();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while updating logout time");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
+  const forceLogoutDeliveryPartner = async (partnerId) => {
+    if (!token || !isAdmin) {
+      showToast("Admin access required");
+      return;
+    }
+
+    const confirmLogout = window.confirm(
+      "Clear this delivery partner's active session now?"
+    );
+
+    if (!confirmLogout) return;
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${DELIVERY_API}/admin/${partnerId}/force-logout`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not force logout delivery partner");
+        return;
+      }
+
+      showToast("Delivery partner session cleared");
+      await fetchDeliveryApplications();
+      await fetchDeliveryLogs();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while clearing delivery session");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
+
 
   const approvedDeliveryPartners = deliveryApplications.filter(
     (partner) => partner.status === "approved" && partner.isActive !== false
@@ -2050,6 +2209,8 @@ export default function App() {
             addDeliveryInvite={addDeliveryInvite}
             removeDeliveryInvite={removeDeliveryInvite}
             updateDeliveryPartnerStatus={updateDeliveryPartnerStatus}
+            updateDeliverySessionDuration={updateDeliverySessionDuration}
+            forceLogoutDeliveryPartner={forceLogoutDeliveryPartner}
             downloadDeliveryCertificate={downloadDeliveryCertificate}
           />
         ) : (
@@ -2154,7 +2315,9 @@ export default function App() {
         otpForm={otpForm}
         setOtpForm={setOtpForm}
         verifySignupOtp={verifySignupOtp}
+        verifyDeliveryLoginOtp={verifyDeliveryLoginOtp}
         resendSignupOtp={resendSignupOtp}
+        resendDeliveryLoginOtp={resendDeliveryLoginOtp}
         resetForm={resetForm}
         setResetForm={setResetForm}
         resetPassword={resetPassword}
@@ -2174,7 +2337,9 @@ function OtpPopupModal({
   otpForm,
   setOtpForm,
   verifySignupOtp,
+  verifyDeliveryLoginOtp,
   resendSignupOtp,
+  resendDeliveryLoginOtp,
   resetForm,
   setResetForm,
   resetPassword,
@@ -2184,14 +2349,25 @@ function OtpPopupModal({
   if (!type) return null;
 
   const isSignup = type === "signup";
-  const title = isSignup ? "Verify Signup OTP" : "Reset Password OTP";
+  const isDeliveryLogin = type === "deliveryLogin";
+  const isReset = type === "reset";
+
+  const title = isSignup
+    ? "Verify Signup OTP"
+    : isDeliveryLogin
+    ? "Delivery Partner Login OTP"
+    : "Reset Password OTP";
+
   const subtitle = isSignup
     ? "Enter the OTP sent to your email to activate your account."
+    : isDeliveryLogin
+    ? "For security, delivery partner login requires email OTP every time."
     : "Enter the OTP sent to your email and create a new password.";
 
-  const canSubmit = isSignup
-    ? Boolean(otpForm.email && otpForm.otp)
-    : Boolean(resetForm.email && resetForm.otp && resetForm.newPassword);
+  const canSubmit =
+    isSignup || isDeliveryLogin
+      ? Boolean(otpForm.email && otpForm.otp)
+      : Boolean(resetForm.email && resetForm.otp && resetForm.newPassword);
 
   return (
     <div
@@ -2273,7 +2449,13 @@ function OtpPopupModal({
         </div>
 
         <form
-          onSubmit={isSignup ? verifySignupOtp : resetPassword}
+          onSubmit={
+            isSignup
+              ? verifySignupOtp
+              : isDeliveryLogin
+              ? verifyDeliveryLoginOtp
+              : resetPassword
+          }
           style={{
             padding: 24,
             display: "grid",
@@ -2283,9 +2465,9 @@ function OtpPopupModal({
           <label style={{ fontWeight: 950 }}>Email</label>
           <input
             placeholder="Email address"
-            value={isSignup ? otpForm.email : resetForm.email}
+            value={isSignup || isDeliveryLogin ? otpForm.email : resetForm.email}
             onChange={(e) =>
-              isSignup
+              isSignup || isDeliveryLogin
                 ? setOtpForm({ ...otpForm, email: e.target.value })
                 : setResetForm({ ...resetForm, email: e.target.value })
             }
@@ -2298,11 +2480,11 @@ function OtpPopupModal({
           <label style={{ fontWeight: 950 }}>OTP Code</label>
           <input
             placeholder="6-digit OTP"
-            value={isSignup ? otpForm.otp : resetForm.otp}
+            value={isSignup || isDeliveryLogin ? otpForm.otp : resetForm.otp}
             onChange={(e) => {
               const otp = e.target.value.replace(/\D/g, "").slice(0, 6);
 
-              isSignup
+              isSignup || isDeliveryLogin
                 ? setOtpForm({ ...otpForm, otp })
                 : setResetForm({ ...resetForm, otp });
             }}
@@ -2317,7 +2499,7 @@ function OtpPopupModal({
             }}
           />
 
-          {!isSignup && (
+          {isReset && (
             <>
               <label style={{ fontWeight: 950 }}>New Password</label>
               <input
@@ -2347,12 +2529,12 @@ function OtpPopupModal({
               cursor: canSubmit ? "pointer" : "not-allowed",
             }}
           >
-            {isSignup ? "Verify & Create Account" : "Reset Password"}
+            {isSignup ? "Verify & Create Account" : isDeliveryLogin ? "Verify Delivery Login" : "Reset Password"}
           </button>
 
           <button
             type="button"
-            onClick={isSignup ? resendSignupOtp : forgotPassword}
+            onClick={isSignup ? resendSignupOtp : isDeliveryLogin ? resendDeliveryLoginOtp : forgotPassword}
             style={linkButton(theme)}
           >
             Resend OTP
@@ -6571,6 +6753,110 @@ function DeliveryApplyPage({
   );
 }
 
+
+function DeliverySessionAdminControls({
+  theme,
+  app,
+  updateDeliverySessionDuration,
+  forceLogoutDeliveryPartner,
+}) {
+  const [sessionHours, setSessionHours] = useState(app.sessionDurationHours || 8);
+
+  const isSessionActive =
+    app.activeSessionId &&
+    app.sessionExpiresAt &&
+    new Date(app.sessionExpiresAt) > new Date();
+
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        borderTop: `1px solid ${theme.border}`,
+        paddingTop: 12,
+      }}
+    >
+      <p style={{ margin: "0 0 8px", color: theme.muted, fontWeight: 850 }}>
+        Admin session control
+      </p>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto",
+          gap: 8,
+          alignItems: "center",
+        }}
+      >
+        <input
+          type="number"
+          min="1"
+          max="24"
+          step="1"
+          value={sessionHours}
+          onChange={(e) => setSessionHours(e.target.value)}
+          style={{
+            ...formControl(theme),
+            margin: 0,
+          }}
+          placeholder="Logout hours"
+        />
+
+        <button
+          type="button"
+          onClick={() =>
+            updateDeliverySessionDuration(app._id, Number(sessionHours))
+          }
+          style={deliveryActionButton(theme.blue)}
+        >
+          Save Hours
+        </button>
+      </div>
+
+      <div
+        style={{
+          color: theme.muted,
+          fontSize: 13,
+          lineHeight: 1.6,
+          marginTop: 8,
+          overflowWrap: "anywhere",
+        }}
+      >
+        <div>Logout after: <strong>{app.sessionDurationHours || 8} hour(s)</strong></div>
+        <div>
+          Session:{" "}
+          <strong style={{ color: isSessionActive ? theme.green : theme.muted }}>
+            {isSessionActive ? "Active" : "Inactive"}
+          </strong>
+        </div>
+        {app.sessionExpiresAt && (
+          <div>Expires: {new Date(app.sessionExpiresAt).toLocaleString()}</div>
+        )}
+        {app.lastLoginAt && (
+          <div>Last login: {new Date(app.lastLoginAt).toLocaleString()}</div>
+        )}
+        {app.lastLoginIp && <div>IP: {app.lastLoginIp}</div>}
+        {app.lastLoginDevice && <div>Device: {app.lastLoginDevice.slice(0, 90)}</div>}
+        <div>Invalid delivery OTP attempts: {app.loginOtpAttempts || 0}</div>
+      </div>
+
+      {isSessionActive && (
+        <button
+          type="button"
+          onClick={() => forceLogoutDeliveryPartner(app._id)}
+          style={{
+            ...deliveryActionButton(theme.red),
+            marginTop: 10,
+            width: "100%",
+          }}
+        >
+          Force Logout Session
+        </button>
+      )}
+    </div>
+  );
+}
+
+
 function AdminDeliveryApplicationsPage({
   theme,
   applications,
@@ -6585,6 +6871,8 @@ function AdminDeliveryApplicationsPage({
   addDeliveryInvite,
   removeDeliveryInvite,
   updateDeliveryPartnerStatus,
+  updateDeliverySessionDuration,
+  forceLogoutDeliveryPartner,
   downloadDeliveryCertificate,
 }) {
   const badgeColor = {
@@ -6828,6 +7116,15 @@ function AdminDeliveryApplicationsPage({
                 <p style={{ margin: "6px 0 0", color: theme.muted }}>
                   Delivered: {app.totalDelivered || 0} / Assigned: {app.totalAssigned || 0}
                 </p>
+
+                {["approved", "suspended"].includes(app.status) && (
+                  <DeliverySessionAdminControls
+                    theme={theme}
+                    app={app}
+                    updateDeliverySessionDuration={updateDeliverySessionDuration}
+                    forceLogoutDeliveryPartner={forceLogoutDeliveryPartner}
+                  />
+                )}
               </div>
 
               <div
@@ -6961,7 +7258,10 @@ function AdminDeliveryApplicationsPage({
           padding: 22,
         }}
       >
-        <h2 style={{ marginTop: 0 }}>Delivery Security Logs</h2>
+        <h2 style={{ marginTop: 0 }}>Delivery Security & Activity Logs</h2>
+        <p style={{ color: theme.muted, lineHeight: 1.6, marginTop: -6 }}>
+          Admin can audit delivery login OTP attempts, approvals, suspensions, force logouts, assignment, pickup, delivery OTP, and completed delivery actions.
+        </p>
 
         {logs.length === 0 ? (
           <p style={{ color: theme.muted }}>No delivery logs yet.</p>

@@ -641,6 +641,95 @@ const reactivateDeliveryPartner = async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
+
+const updateDeliverySessionSettings = async (req, res) => {
+  try {
+    if (!isWearlanceAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+
+    const hours = Number(req.body.sessionDurationHours);
+
+    if (!Number.isFinite(hours) || hours < 1 || hours > 24) {
+      return res.status(400).json({
+        success: false,
+        message: "Session duration must be between 1 and 24 hours",
+      });
+    }
+
+    const partner = await DeliveryPartner.findById(req.params.id);
+
+    if (!partner) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery partner not found",
+      });
+    }
+
+    partner.sessionDurationHours = Math.round(hours * 100) / 100;
+    await partner.save();
+
+    await writeDeliveryLog({
+      req,
+      deliveryPartner: partner._id,
+      action: "DELIVERY_SESSION_DURATION_UPDATED",
+      result: "success",
+      note: `Admin set logout time to ${partner.sessionDurationHours} hour(s)`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery partner logout time updated",
+      partner,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const forceDeliveryLogout = async (req, res) => {
+  try {
+    if (!isWearlanceAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+
+    const partner = await DeliveryPartner.findById(req.params.id);
+
+    if (!partner) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery partner not found",
+      });
+    }
+
+    partner.activeSessionId = "";
+    partner.sessionExpiresAt = null;
+    await partner.save();
+
+    await writeDeliveryLog({
+      req,
+      deliveryPartner: partner._id,
+      action: "DELIVERY_FORCE_LOGOUT_BY_ADMIN",
+      result: "success",
+      note: "Admin cleared active delivery session",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery partner session cleared",
+      partner,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const getDeliveryLogs = async (req, res) => {
   try {
     if (!isWearlanceAdmin(req.user)) return res.status(403).json({ success: false, message: "Admin access required" });
@@ -683,13 +772,21 @@ const downloadDeliveryCertificate = async (req, res) => {
 const createDeliverySession = async (req, user) => {
   const partner = await DeliveryPartner.findOne({ user: user._id, status: "approved", isActive: true });
   if (!partner) return null;
+
   const sessionId = crypto.randomBytes(32).toString("hex");
+  const sessionHours = Math.min(
+    Math.max(Number(partner.sessionDurationHours || process.env.DELIVERY_SESSION_HOURS || 8), 1),
+    24
+  );
+
   partner.activeSessionId = sessionId;
+  partner.sessionExpiresAt = new Date(Date.now() + sessionHours * 60 * 60 * 1000);
   partner.lastLoginAt = new Date();
   partner.lastLoginIp = getRequestIp(req);
   partner.lastLoginDevice = getRequestDevice(req);
   await partner.save();
-  return { partner, sessionId };
+
+  return { partner, sessionId, sessionExpiresAt: partner.sessionExpiresAt };
 };
 
 module.exports = {
@@ -704,6 +801,8 @@ module.exports = {
   rejectDeliveryPartner,
   suspendDeliveryPartner,
   reactivateDeliveryPartner,
+  updateDeliverySessionSettings,
+  forceDeliveryLogout,
   getDeliveryLogs,
   downloadDeliveryCertificate,
   createDeliverySession,

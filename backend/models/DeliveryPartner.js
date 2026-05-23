@@ -154,6 +154,39 @@ const deliveryPartnerSchema = new mongoose.Schema(
       default: "",
     },
 
+    sessionDurationHours: {
+      type: Number,
+      default: 8,
+      min: 1,
+      max: 24,
+    },
+
+    sessionExpiresAt: {
+      type: Date,
+      default: null,
+    },
+
+    loginOtp: {
+      type: String,
+      default: null,
+    },
+
+    loginOtpExpires: {
+      type: Date,
+      default: null,
+    },
+
+    loginOtpAttempts: {
+      type: Number,
+      default: 0,
+    },
+
+    disabledReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     lastLoginAt: {
       type: Date,
       default: null,
