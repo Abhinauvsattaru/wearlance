@@ -96,6 +96,8 @@ export default function App() {
   const [deliveryApplication, setDeliveryApplication] = useState(null);
   const [deliveryApplications, setDeliveryApplications] = useState([]);
   const [deliveryLogs, setDeliveryLogs] = useState([]);
+  const [deliveryInvites, setDeliveryInvites] = useState([]);
+  const [deliveryInviteEmail, setDeliveryInviteEmail] = useState("");
   const [assignedDeliveryOrders, setAssignedDeliveryOrders] = useState([]);
   const [deliveryPartnerProfile, setDeliveryPartnerProfile] = useState(null);
   const [loadingDelivery, setLoadingDelivery] = useState(false);
@@ -1421,8 +1423,142 @@ export default function App() {
     }
   };
 
+  const fetchDeliveryInvites = async () => {
+    if (!token || !isAdmin) return;
+
+    try {
+      const response = await fetch(`${DELIVERY_API}/admin/invites`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDeliveryInvites(data.invites || []);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const addDeliveryInvite = async (event) => {
+    event.preventDefault();
+
+    if (!deliveryInviteEmail.trim()) {
+      showToast("Enter delivery partner email");
+      return;
+    }
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${DELIVERY_API}/admin/invites`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email: deliveryInviteEmail.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not add delivery access email");
+        return;
+      }
+
+      setDeliveryInviteEmail("");
+      showToast("Delivery access email added");
+      await fetchDeliveryInvites();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while adding delivery access email");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
+  const removeDeliveryInvite = async (inviteId) => {
+    if (!inviteId) return;
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${DELIVERY_API}/admin/invites/${inviteId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not remove delivery access email");
+        return;
+      }
+
+      showToast("Delivery access email removed");
+      await fetchDeliveryInvites();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while removing delivery access email");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
+  const downloadDeliveryCertificate = async (type, applicationId) => {
+    if (!applicationId || !token) {
+      showToast("Login required to download PDF");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${DELIVERY_API}/certificate/${type}/${applicationId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        let message = "PDF download failed";
+
+        try {
+          const data = await response.json();
+          message = data.message || message;
+        } catch {
+          // not json
+        }
+
+        showToast(message);
+        return;
+      }
+
+      const blob = await response.blob();
+      const fileUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = fileUrl;
+      link.download = `wearlance-delivery-${type}-${String(applicationId).slice(-8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(fileUrl);
+
+      showToast("Delivery PDF downloaded");
+    } catch (error) {
+      console.error(error);
+      showToast("PDF download failed");
+    }
+  };
+
   const openDeliveryApplications = async () => {
     await fetchDeliveryApplications();
+    await fetchDeliveryInvites();
     await fetchDeliveryLogs();
     setPage("deliveryApplications");
   };
@@ -1774,6 +1910,7 @@ export default function App() {
           deliveryApplication={deliveryApplication}
           applyAsDeliveryPartner={applyAsDeliveryPartner}
           loadingDelivery={loadingDelivery}
+          downloadDeliveryCertificate={downloadDeliveryCertificate}
           setPage={setPage}
         />
       )}
@@ -1784,10 +1921,17 @@ export default function App() {
             theme={theme}
             applications={deliveryApplications}
             logs={deliveryLogs}
+            invites={deliveryInvites}
+            inviteEmail={deliveryInviteEmail}
+            setInviteEmail={setDeliveryInviteEmail}
             loadingDelivery={loadingDelivery}
             fetchDeliveryApplications={fetchDeliveryApplications}
             fetchDeliveryLogs={fetchDeliveryLogs}
+            fetchDeliveryInvites={fetchDeliveryInvites}
+            addDeliveryInvite={addDeliveryInvite}
+            removeDeliveryInvite={removeDeliveryInvite}
             updateDeliveryPartnerStatus={updateDeliveryPartnerStatus}
+            downloadDeliveryCertificate={downloadDeliveryCertificate}
           />
         ) : (
           <AccessDenied theme={theme} setPage={setPage} />
@@ -5856,6 +6000,7 @@ function DeliveryApplyPage({
   deliveryApplication,
   applyAsDeliveryPartner,
   loadingDelivery,
+  downloadDeliveryCertificate,
   setPage,
 }) {
   const fieldStyle = {
@@ -5946,8 +6091,8 @@ function DeliveryApplyPage({
               fontSize: 16,
             }}
           >
-            Apply once from your normal customer account. Admin approval is
-            required before delivery access is enabled.
+            Apply only after admin adds your email to the delivery access list.
+            After applying, you receive an email and a professional PDF receipt.
           </p>
 
           <div
@@ -6011,6 +6156,53 @@ function DeliveryApplyPage({
                 <span>Vehicle: {deliveryApplication.vehicleType}</span>
               </div>
 
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  marginTop: 18,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadDeliveryCertificate("application", deliveryApplication._id)
+                  }
+                  style={{
+                    border: "none",
+                    borderRadius: 13,
+                    padding: "12px 15px",
+                    background: theme.blue,
+                    color: "#fff",
+                    fontWeight: 950,
+                    cursor: "pointer",
+                  }}
+                >
+                  Download Application PDF
+                </button>
+
+                {deliveryApplication.status === "approved" && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadDeliveryCertificate("approval", deliveryApplication._id)
+                    }
+                    style={{
+                      border: "none",
+                      borderRadius: 13,
+                      padding: "12px 15px",
+                      background: theme.green,
+                      color: "#fff",
+                      fontWeight: 950,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Download Congratulations PDF
+                  </button>
+                )}
+              </div>
+
               <p
                 style={{
                   color: theme.muted,
@@ -6022,7 +6214,7 @@ function DeliveryApplyPage({
                 {deliveryApplication.status === "pending" &&
                   "Admin will review your application soon."}
                 {deliveryApplication.status === "approved" &&
-                  "Your delivery access is approved. Delivery dashboard will be added in the next phase."}
+                  "Congratulations. Your delivery access is approved. You can now open Delivery Dashboard and download your approval PDF."}
                 {deliveryApplication.status === "rejected" &&
                   "Your application was rejected. Contact Wearlance admin for clarification."}
                 {deliveryApplication.status === "suspended" &&
@@ -6031,6 +6223,20 @@ function DeliveryApplyPage({
             </div>
           ) : (
             <form onSubmit={applyAsDeliveryPartner} style={{ display: "grid", gap: 14 }}>
+              <div
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 16,
+                  padding: 14,
+                  background: theme.bg === "#07111f" ? "#0f172a" : "#fff7ed",
+                  color: theme.bg === "#07111f" ? "#fed7aa" : "#9a3412",
+                  fontWeight: 850,
+                  lineHeight: 1.55,
+                }}
+              >
+                Only emails added by admin can apply as delivery partners. If your
+                email is not approved for application, ask admin to add it first.
+              </div>
               <input
                 style={fieldStyle}
                 value={deliveryForm.phone}
@@ -6157,10 +6363,17 @@ function AdminDeliveryApplicationsPage({
   theme,
   applications,
   logs,
+  invites,
+  inviteEmail,
+  setInviteEmail,
   loadingDelivery,
   fetchDeliveryApplications,
   fetchDeliveryLogs,
+  fetchDeliveryInvites,
+  addDeliveryInvite,
+  removeDeliveryInvite,
   updateDeliveryPartnerStatus,
+  downloadDeliveryCertificate,
 }) {
   const badgeColor = {
     pending: theme.orange,
@@ -6226,6 +6439,100 @@ function AdminDeliveryApplicationsPage({
           </button>
         </div>
       </div>
+
+      <section
+        style={{
+          background: theme.panel,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 24,
+          padding: 22,
+          marginBottom: 24,
+          boxShadow:
+            theme.bg === "#07111f"
+              ? "0 12px 28px rgba(0,0,0,0.25)"
+              : "0 10px 26px rgba(15,23,42,0.07)",
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Delivery Access Portal</h2>
+        <p style={{ color: theme.muted, lineHeight: 1.6 }}>
+          Add an email here first. Only users logged in with added emails can apply as delivery partners.
+        </p>
+
+        <form
+          onSubmit={addDeliveryInvite}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: 12,
+          }}
+        >
+          <input
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="deliveryperson@gmail.com"
+            style={formControl(theme)}
+          />
+          <button
+            type="submit"
+            style={{
+              border: "none",
+              borderRadius: 13,
+              padding: "12px 18px",
+              background: theme.orange2,
+              color: "#fff",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            Add Access
+          </button>
+        </form>
+
+        <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+          {invites.length === 0 ? (
+            <p style={{ color: theme.muted, margin: 0 }}>No delivery access emails added yet.</p>
+          ) : (
+            invites.map((invite) => (
+              <div
+                key={invite._id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 16,
+                  padding: 13,
+                  background: theme.bg === "#07111f" ? "#0f172a" : "#f8fafc",
+                }}
+              >
+                <div>
+                  <strong>{invite.email}</strong>
+                  <p style={{ color: theme.muted, margin: "4px 0 0", fontSize: 13 }}>
+                    Status: {invite.status || "active"} · Added {new Date(invite.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeDeliveryInvite(invite._id)}
+                  style={{
+                    border: "none",
+                    borderRadius: 12,
+                    padding: "10px 14px",
+                    background: theme.red,
+                    color: "#fff",
+                    fontWeight: 950,
+                    cursor: "pointer",
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       {loadingDelivery && <InfoBox theme={theme} text="Loading delivery data..." />}
 
@@ -6339,6 +6646,33 @@ function AdminDeliveryApplicationsPage({
                   </button>
                 )}
               </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                marginTop: 14,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => downloadDeliveryCertificate("application", app._id)}
+                style={deliveryActionButton(theme.blue)}
+              >
+                Application PDF
+              </button>
+
+              {app.status === "approved" && (
+                <button
+                  type="button"
+                  onClick={() => downloadDeliveryCertificate("approval", app._id)}
+                  style={deliveryActionButton(theme.green)}
+                >
+                  Congratulations PDF
+                </button>
+              )}
             </div>
 
             {app.experience && (

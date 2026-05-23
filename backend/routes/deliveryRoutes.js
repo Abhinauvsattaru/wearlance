@@ -1,6 +1,9 @@
 const express = require("express");
 
 const {
+  adminCreateDeliveryInvite,
+  adminListDeliveryInvites,
+  adminRemoveDeliveryInvite,
   applyAsDeliveryPartner,
   getMyDeliveryApplication,
   listDeliveryApplications,
@@ -9,6 +12,7 @@ const {
   suspendDeliveryPartner,
   reactivateDeliveryPartner,
   getDeliveryLogs,
+  downloadDeliveryCertificate,
 } = require("../controllers/deliveryController");
 
 const { protect } = require("../middleware/authMiddleware");
@@ -17,6 +21,11 @@ const router = express.Router();
 
 router.post("/apply", protect, applyAsDeliveryPartner);
 router.get("/me", protect, getMyDeliveryApplication);
+router.get("/certificate/:type/:id", protect, downloadDeliveryCertificate);
+
+router.get("/admin/invites", protect, adminListDeliveryInvites);
+router.post("/admin/invites", protect, adminCreateDeliveryInvite);
+router.delete("/admin/invites/:id", protect, adminRemoveDeliveryInvite);
 
 router.get("/admin/applications", protect, listDeliveryApplications);
 router.put("/admin/:id/approve", protect, approveDeliveryPartner);
