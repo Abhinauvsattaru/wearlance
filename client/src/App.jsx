@@ -96,6 +96,8 @@ export default function App() {
   const [deliveryApplication, setDeliveryApplication] = useState(null);
   const [deliveryApplications, setDeliveryApplications] = useState([]);
   const [deliveryLogs, setDeliveryLogs] = useState([]);
+  const [assignedDeliveryOrders, setAssignedDeliveryOrders] = useState([]);
+  const [deliveryPartnerProfile, setDeliveryPartnerProfile] = useState(null);
   const [loadingDelivery, setLoadingDelivery] = useState(false);
   const [deliveryForm, setDeliveryForm] = useState({
     phone: "",
@@ -1461,6 +1463,161 @@ export default function App() {
     }
   };
 
+
+  const approvedDeliveryPartners = deliveryApplications.filter(
+    (partner) => partner.status === "approved" && partner.isActive !== false
+  );
+
+  const assignDeliveryPartnerToOrder = async (orderId, deliveryPartnerId) => {
+    if (!token || !isAdmin) {
+      showToast("Admin access required");
+      return;
+    }
+
+    if (!deliveryPartnerId) {
+      showToast("Select a delivery partner");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${ORDER_API}/${orderId}/assign-delivery`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ deliveryPartnerId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not assign delivery partner");
+        return;
+      }
+
+      showToast("Delivery partner assigned");
+      await fetchAdminOrders();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while assigning delivery partner");
+    }
+  };
+
+  const fetchAssignedDeliveryOrders = async () => {
+    if (!token) {
+      showToast("Please login first");
+      setPage("login");
+      return;
+    }
+
+    try {
+      setLoadingDelivery(true);
+
+      const response = await fetch(`${ORDER_API}/delivery/assigned`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Could not load assigned delivery orders");
+        setAssignedDeliveryOrders([]);
+        setDeliveryPartnerProfile(null);
+        return;
+      }
+
+      setAssignedDeliveryOrders(data.orders || []);
+      setDeliveryPartnerProfile(data.partner || null);
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error while loading delivery dashboard");
+    } finally {
+      setLoadingDelivery(false);
+    }
+  };
+
+  const openDeliveryDashboard = async () => {
+    await fetchAssignedDeliveryOrders();
+    setPage("deliveryDashboard");
+  };
+
+  const updateAssignedOrderInState = (updatedOrder) => {
+    if (!updatedOrder?._id) return;
+
+    setAssignedDeliveryOrders((prev) =>
+      prev.map((order) => (order._id === updatedOrder._id ? updatedOrder : order))
+    );
+  };
+
+  const deliveryOrderAction = async (orderId, action, otp = "") => {
+    if (!token) {
+      showToast("Please login first");
+      setPage("login");
+      return;
+    }
+
+    const actionMap = {
+      pickup: {
+        url: `${ORDER_API}/${orderId}/delivery/pickup`,
+        method: "PUT",
+        body: {},
+        success: "Order marked as picked up",
+      },
+      outForDelivery: {
+        url: `${ORDER_API}/${orderId}/delivery/out-for-delivery`,
+        method: "PUT",
+        body: {},
+        success: "Order marked out for delivery. OTP sent to customer.",
+      },
+      verifyOtp: {
+        url: `${ORDER_API}/${orderId}/delivery/verify-otp`,
+        method: "PUT",
+        body: { otp },
+        success: "Delivery completed successfully",
+      },
+    };
+
+    const config = actionMap[action];
+
+    if (!config) {
+      showToast("Invalid delivery action");
+      return;
+    }
+
+    if (action === "verifyOtp" && !otp) {
+      showToast("Enter customer delivery OTP");
+      return;
+    }
+
+    try {
+      const response = await fetch(config.url, {
+        method: config.method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(config.body),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        showToast(data.message || "Delivery action failed");
+        return;
+      }
+
+      updateAssignedOrderInState(data.order);
+      showToast(data.message || config.success);
+      await fetchAssignedDeliveryOrders();
+    } catch (error) {
+      console.error(error);
+      showToast("Backend error during delivery action");
+    }
+  };
+
   const openMyOrders = async () => {
     await fetchMyOrders();
     setPage("myOrders");
@@ -1505,6 +1662,7 @@ export default function App() {
         openMyOrders={openMyOrders}
         openAdminOrders={openAdminOrders}
         openDeliveryApplications={openDeliveryApplications}
+        openDeliveryDashboard={openDeliveryDashboard}
       />
 
       <MobileBottomBar
@@ -1515,6 +1673,7 @@ export default function App() {
         openMyOrders={openMyOrders}
         openAdminOrders={openAdminOrders}
         openDeliveryApplications={openDeliveryApplications}
+        openDeliveryDashboard={openDeliveryDashboard}
       />
 
       {page === "home" && (
@@ -1598,6 +1757,9 @@ export default function App() {
             fetchAdminOrders={fetchAdminOrders}
             updateOrderStatus={updateOrderStatus}
             downloadInvoice={downloadInvoice}
+            deliveryPartners={approvedDeliveryPartners}
+            assignDeliveryPartnerToOrder={assignDeliveryPartnerToOrder}
+            fetchDeliveryApplications={fetchDeliveryApplications}
           />
         ) : (
           <AccessDenied theme={theme} setPage={setPage} />
@@ -1630,6 +1792,19 @@ export default function App() {
         ) : (
           <AccessDenied theme={theme} setPage={setPage} />
         ))}
+
+      {page === "deliveryDashboard" && (
+        <DeliveryDashboardPage
+          theme={theme}
+          orders={assignedDeliveryOrders}
+          partner={deliveryPartnerProfile}
+          loadingDelivery={loadingDelivery}
+          fetchAssignedDeliveryOrders={fetchAssignedDeliveryOrders}
+          deliveryOrderAction={deliveryOrderAction}
+          downloadInvoice={downloadInvoice}
+          setPage={setPage}
+        />
+      )}
 
       {page === "admin" &&
         (isAdmin ? (
@@ -2840,6 +3015,7 @@ function SubNavbar({
   openMyOrders,
   openAdminOrders,
   openDeliveryApplications,
+  openDeliveryDashboard,
 }) {
   const navItems = [
     {
@@ -2877,6 +3053,11 @@ function SubNavbar({
     navItems.push({
       label: "🚚 Delivery Partner",
       action: () => setPage("deliveryApply"),
+    });
+
+    navItems.push({
+      label: "🛵 Delivery Dashboard",
+      action: openDeliveryDashboard,
     });
   }
 
@@ -2935,7 +3116,7 @@ function SubNavbar({
 }
 
 
-function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders, openDeliveryApplications }) {
+function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, openAdminOrders, openDeliveryApplications, openDeliveryDashboard }) {
   return (
     <div className="mobileBottomBar">
       <button onClick={() => setPage("home")}>
@@ -2953,9 +3134,9 @@ function MobileBottomBar({ setPage, cartCount, user, isAdmin, openMyOrders, open
         <span>{user ? "Orders" : "Login"}</span>
       </button>
 
-      <button onClick={isAdmin ? openDeliveryApplications : user ? () => setPage("deliveryApply") : () => setPage("home")}>
+      <button onClick={isAdmin ? openDeliveryApplications : user ? openDeliveryDashboard : () => setPage("home")}>
         <span>{isAdmin ? "🚚" : user ? "🛵" : "🔥"}</span>
-        <span>{isAdmin ? "Delivery" : user ? "Apply" : "Shop"}</span>
+        <span>{isAdmin ? "Delivery" : user ? "Deliver" : "Shop"}</span>
       </button>
     </div>
   );
@@ -4840,6 +5021,9 @@ function AdminOrdersPage({
   fetchAdminOrders,
   updateOrderStatus,
   downloadInvoice,
+  deliveryPartners,
+  assignDeliveryPartnerToOrder,
+  fetchDeliveryApplications,
 }) {
   return (
     <main
@@ -4912,6 +5096,9 @@ function AdminOrdersPage({
             adminView
             updateOrderStatus={updateOrderStatus}
             downloadInvoice={downloadInvoice}
+            deliveryPartners={deliveryPartners}
+            assignDeliveryPartnerToOrder={assignDeliveryPartnerToOrder}
+            fetchDeliveryApplications={fetchDeliveryApplications}
           />
         ))}
       </div>
@@ -4959,15 +5146,24 @@ function OrderCard({
   order,
   customerView,
   adminView,
+  deliveryView,
   updateOrderStatus,
   verifyDeliveryOtp,
   createReview,
   cancelMyOrder,
   requestReturnOrder,
   downloadInvoice,
+  deliveryPartners = [],
+  assignDeliveryPartnerToOrder,
+  fetchDeliveryApplications,
+  deliveryOrderAction,
 }) {
   const [returnReason, setReturnReason] = useState("");
   const [deliveryOtp, setDeliveryOtp] = useState("");
+  const [partnerOtp, setPartnerOtp] = useState("");
+  const [assignPartnerId, setAssignPartnerId] = useState(
+    order.assignedDeliveryPartner?._id || order.assignedDeliveryPartner || ""
+  );
   const [reviewForms, setReviewForms] = useState({});
 
   const updateReviewForm = (productId, field, value) => {
@@ -5360,7 +5556,7 @@ function OrderCard({
         style={{
           marginTop: 16,
           display: "grid",
-          gridTemplateColumns: adminView ? "1fr 260px" : "1fr",
+          gridTemplateColumns: adminView ? "1fr 300px" : "1fr",
           gap: 18,
         }}
       >
@@ -5401,6 +5597,65 @@ function OrderCard({
               ))}
             </select>
 
+            <div
+              style={{
+                marginTop: 16,
+                borderTop: `1px solid ${theme.border}`,
+                paddingTop: 14,
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Assign Delivery Partner</h3>
+
+              <p style={{ color: theme.muted, fontSize: 13, lineHeight: 1.5 }}>
+                Current:{" "}
+                <strong>
+                  {order.assignedDeliveryPartner?.name ||
+                    order.assignedDeliveryPartner?.email ||
+                    "Not assigned"}
+                </strong>
+              </p>
+
+              <select
+                value={assignPartnerId}
+                onFocus={fetchDeliveryApplications}
+                onChange={(e) => setAssignPartnerId(e.target.value)}
+                style={formControl(theme)}
+              >
+                <option value="">Select approved partner</option>
+                {deliveryPartners.map((partner) => (
+                  <option key={partner._id} value={partner._id}>
+                    {partner.name} · {partner.city} · {partner.phone}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() =>
+                  assignDeliveryPartnerToOrder(order._id, assignPartnerId)
+                }
+                style={{
+                  marginTop: 10,
+                  width: "100%",
+                  border: "none",
+                  borderRadius: 13,
+                  padding: "12px 15px",
+                  background: theme.green,
+                  color: "#fff",
+                  fontWeight: 950,
+                  cursor: "pointer",
+                }}
+              >
+                Assign Partner
+              </button>
+
+              {deliveryPartners.length === 0 && (
+                <p style={{ color: theme.orange2, fontSize: 13, lineHeight: 1.5 }}>
+                  No approved delivery partners found. Approve one from Delivery Apps.
+                </p>
+              )}
+            </div>
+
             {order.orderStatus === "Delivery Verification Pending" && (
               <p
                 style={{
@@ -5415,11 +5670,184 @@ function OrderCard({
             )}
           </div>
         )}
+
+        {deliveryView && (
+          <div>
+            <h3>Delivery Actions</h3>
+
+            <p style={{ color: theme.muted, fontSize: 13, lineHeight: 1.6 }}>
+              Collect the OTP from the customer only after handing over the order.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => deliveryOrderAction(order._id, "pickup")}
+              style={deliveryPanelButton(theme.blue)}
+            >
+              Mark Picked Up
+            </button>
+
+            <button
+              type="button"
+              onClick={() => deliveryOrderAction(order._id, "outForDelivery")}
+              style={deliveryPanelButton(theme.orange2)}
+            >
+              Out for Delivery
+            </button>
+
+            <input
+              value={partnerOtp}
+              onChange={(e) =>
+                setPartnerOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              placeholder="Customer OTP"
+              style={{
+                ...formControl(theme),
+                marginTop: 10,
+                letterSpacing: 5,
+                fontWeight: 950,
+                textAlign: "center",
+              }}
+              inputMode="numeric"
+              maxLength={6}
+            />
+
+            <button
+              type="button"
+              onClick={() =>
+                deliveryOrderAction(order._id, "verifyOtp", partnerOtp)
+              }
+              style={deliveryPanelButton(theme.green)}
+            >
+              Verify OTP & Deliver
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
+
+
+function DeliveryDashboardPage({
+  theme,
+  orders,
+  partner,
+  loadingDelivery,
+  fetchAssignedDeliveryOrders,
+  deliveryOrderAction,
+  downloadInvoice,
+  setPage,
+}) {
+  return (
+    <main
+      style={{
+        maxWidth: 1350,
+        margin: "0 auto",
+        padding: "38px 24px 96px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+          alignItems: "end",
+          marginBottom: 22,
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0, fontSize: 38 }}>Delivery Dashboard</h1>
+          <p style={{ color: theme.muted, marginBottom: 0 }}>
+            See only your assigned orders. Pick up, send OTP, and verify delivery.
+          </p>
+
+          {partner && (
+            <p
+              style={{
+                color: theme.green,
+                fontWeight: 950,
+                marginBottom: 0,
+              }}
+            >
+              Logged in as delivery partner: {partner.name} · {partner.city}
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={fetchAssignedDeliveryOrders}
+            style={{
+              border: "none",
+              borderRadius: 13,
+              padding: "12px 18px",
+              background: theme.blue,
+              color: "#fff",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            Refresh
+          </button>
+
+          <button
+            onClick={() => setPage("deliveryApply")}
+            style={{
+              border: `1px solid ${theme.border}`,
+              borderRadius: 13,
+              padding: "12px 18px",
+              background: theme.panel,
+              color: theme.text,
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            My Application
+          </button>
+        </div>
+      </div>
+
+      {loadingDelivery && <InfoBox theme={theme} text="Loading assigned deliveries..." />}
+
+      {!loadingDelivery && orders.length === 0 && (
+        <InfoBox
+          theme={theme}
+          text="No assigned deliveries yet. Admin must assign orders to your approved delivery account."
+        />
+      )}
+
+      <div style={{ display: "grid", gap: 18 }}>
+        {orders.map((order) => (
+          <OrderCard
+            key={order._id}
+            theme={theme}
+            order={order}
+            deliveryView
+            deliveryOrderAction={deliveryOrderAction}
+            downloadInvoice={downloadInvoice}
+          />
+        ))}
+      </div>
+    </main>
+  );
+}
+
+function deliveryPanelButton(background) {
+  return {
+    width: "100%",
+    marginTop: 10,
+    border: "none",
+    borderRadius: 13,
+    padding: "12px 15px",
+    background,
+    color: "#fff",
+    fontWeight: 950,
+    cursor: "pointer",
+  };
+}
 
 function DeliveryApplyPage({
   theme,
