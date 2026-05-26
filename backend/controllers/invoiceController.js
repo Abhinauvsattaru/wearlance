@@ -16,13 +16,6 @@ const downloadInvoice = async (req, res) => {
       return res.status(403).json({ success: false, message: "Not authorized to download this invoice" });
     }
 
-    if (order.paymentMethod === "COD" && !order.adminConfirmed && !isAdmin) {
-      return res.status(400).json({
-        success: false,
-        message: "Invoice will be available after admin confirms your COD order",
-      });
-    }
-
     const pdfBuffer = generateInvoicePdfBuffer(order);
 
     res.setHeader("Content-Type", "application/pdf");

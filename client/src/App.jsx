@@ -6341,8 +6341,9 @@ function OrderCard({
             </strong>
             <p style={{ margin: "7px 0 0", color: theme.muted, lineHeight: 1.6 }}>
               Your COD order has been received. Wearlance admin will confirm your
-              phone/address before assigning delivery. Invoice will be available
-              after admin confirmation.
+              phone/address before assigning delivery. You can download a pending
+              order invoice now; after admin confirmation, the invoice will update
+              automatically with confirmed order status.
             </p>
           </div>
         )}
@@ -6438,41 +6439,30 @@ function OrderCard({
           marginBottom: 14,
           display: "flex",
           justifyContent: "flex-end",
+          flexWrap: "wrap",
+          gap: 8,
         }}
       >
-        {order.paymentMethod === "COD" && !order.adminConfirmed ? (
-          <button
-            type="button"
-            disabled
-            style={{
-              border: "none",
-              borderRadius: 13,
-              padding: "12px 18px",
-              background: "#94a3b8",
-              color: "#fff",
-              fontWeight: 950,
-              cursor: "not-allowed",
-            }}
-          >
-            Invoice after confirmation
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => downloadInvoice(order._id)}
-            style={{
-              border: "none",
-              borderRadius: 13,
-              padding: "12px 18px",
-              background: theme.blue,
-              color: "#fff",
-              fontWeight: 950,
-              cursor: "pointer",
-            }}
-          >
-            Download Invoice
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => downloadInvoice(order._id)}
+          style={{
+            border: "none",
+            borderRadius: 13,
+            padding: "12px 18px",
+            background:
+              order.paymentMethod === "COD" && !order.adminConfirmed
+                ? theme.orange2
+                : theme.blue,
+            color: "#fff",
+            fontWeight: 950,
+            cursor: "pointer",
+          }}
+        >
+          {order.paymentMethod === "COD" && !order.adminConfirmed
+            ? "Download Pending Invoice"
+            : "Download Invoice"}
+        </button>
       </div>
 
       <div

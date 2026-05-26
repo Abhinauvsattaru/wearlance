@@ -60,6 +60,11 @@ const generateInvoicePdfBuffer = (order) => {
   const status = order.orderStatus || "Placed";
   const paymentMethod = order.paymentMethod || "COD";
   const paymentStatus = order.paymentStatus || "Pending";
+  const isPendingCod = order.paymentMethod === "COD" && !order.adminConfirmed;
+  const invoiceTitle = isPendingCod ? "PENDING ORDER INVOICE" : "TAX INVOICE";
+  const confirmationText = isPendingCod
+    ? "Admin confirmation pending - this invoice will update after confirmation"
+    : "Admin confirmed - official order invoice";
   const address = order.shippingAddress || {};
   const items = Array.isArray(order.orderItems) ? order.orderItems : [];
 
@@ -71,7 +76,7 @@ const generateInvoicePdfBuffer = (order) => {
   c += "1 1 1 rg\n";
   c += text(36, 797, "WEARLANCE", "F2", 24);
   c += text(36, 777, "EVERY STYLE Rs.399", "F1", 10);
-  c += text(435, 797, "TAX INVOICE", "F2", 18);
+  c += text(392, 797, invoiceTitle, "F2", isPendingCod ? 14 : 18);
   c += text(435, 777, `Invoice No: WL-${shortId}`, "F1", 9);
 
   c += "0 0 0 rg\n";
@@ -82,6 +87,9 @@ const generateInvoicePdfBuffer = (order) => {
   c += text(36, 666, `Order Date: ${createdAt}`, "F1", 9);
   c += text(36, 650, `Order Status: ${status}`, "F1", 9);
   c += text(36, 634, `Payment: ${paymentMethod} - ${paymentStatus}`, "F1", 9);
+  c += isPendingCod ? "0.98 0.45 0.09 rg\n" : "0.09 0.64 0.29 rg\n";
+  c += text(36, 616, confirmationText, "F2", 8);
+  c += "0 0 0 rg\n";
 
   c += text(320, 712, "Bill To", "F2", 14);
   c += line(320, 704, 559, 704);
@@ -144,8 +152,9 @@ const generateInvoicePdfBuffer = (order) => {
   c += text(500, y, money(order.totalPrice), "F2", 11);
 
   c += "0.40 0.45 0.53 rg\n";
-  c += text(36, 72, "Thank you for shopping with Wearlance.", "F2", 10);
-  c += text(36, 56, "This is a computer generated invoice. For support: abhinauv22@gmail.com | +91 8523813819", "F1", 8);
+  c += text(36, 88, isPendingCod ? "Note: This is a pending COD order invoice. Admin confirmation is not completed yet." : "Thank you for shopping with Wearlance.", "F2", 9);
+  c += text(36, 72, isPendingCod ? "After admin confirmation, download invoice again to get the updated confirmed invoice." : "This invoice was generated after order confirmation.", "F1", 8);
+  c += text(36, 56, "For support: abhinauv22@gmail.com | +91 8523813819", "F1", 8);
 
   return buildPdf(c);
 };
