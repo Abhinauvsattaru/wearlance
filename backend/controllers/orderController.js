@@ -377,7 +377,8 @@ const getSingleOrder = async (req, res) => {
       .populate("user", "name email isAdmin")
       .populate("assignedDeliveryPartner", "name email phone city status isActive")
       .populate("adminConfirmedBy", "name email")
-      .populate("adminNotes.by", "name email");
+      .populate("adminNotes.by", "name email")
+      .populate("cancellationDetails.cancelledBy", "name email");
 
     if (!order) {
       return res.status(404).json({
@@ -432,6 +433,7 @@ const getAllOrders = async (req, res) => {
       .populate("assignedDeliveryPartner", "name email phone city status isActive")
       .populate("adminConfirmedBy", "name email")
       .populate("adminNotes.by", "name email")
+      .populate("cancellationDetails.cancelledBy", "name email")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -449,7 +451,7 @@ const getAllOrders = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   try {
-    const { orderStatus } = req.body;
+    const { orderStatus, cancellationReason } = req.body;
 
     const allowedStatuses = [
       "Placed",
@@ -481,6 +483,15 @@ const updateOrderStatus = async (req, res) => {
     }
 
     if (orderStatus === "Cancelled") {
+      const reasonText = String(cancellationReason || "").trim();
+
+      if (reasonText.length < 5) {
+        return res.status(400).json({
+          success: false,
+          message: "Cancellation reason is required. Example: phone not reachable, address not serviceable, duplicate order.",
+        });
+      }
+
       await restoreStockIfNeeded(order);
 
       order.orderStatus = "Cancelled";
@@ -488,6 +499,17 @@ const updateOrderStatus = async (req, res) => {
       order.deliveryOtpExpires = null;
       order.isDelivered = false;
       order.deliveredAt = undefined;
+      order.cancellationDetails = {
+        reason: reasonText,
+        cancelledByRole: "admin",
+        cancelledBy: req.user._id,
+        cancelledAt: new Date(),
+      };
+      order.adminNotes.push({
+        note: `Order cancelled by admin. Reason: ${reasonText}`,
+        by: req.user._id,
+        at: new Date(),
+      });
 
       const updatedOrder = await order.save();
 
@@ -499,7 +521,7 @@ const updateOrderStatus = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: "Order cancelled and stock restored",
+        message: "Order cancelled with reason and stock restored",
         order: updatedOrder,
       });
     }
@@ -698,6 +720,12 @@ const cancelMyOrder = async (req, res) => {
     order.deliveryOtpExpires = null;
     order.isDelivered = false;
     order.deliveredAt = undefined;
+    order.cancellationDetails = {
+      reason: "Cancelled by customer before delivery flow",
+      cancelledByRole: "customer",
+      cancelledBy: req.user._id,
+      cancelledAt: new Date(),
+    };
 
     const updatedOrder = await order.save();
 
@@ -893,6 +921,7 @@ const getAssignedDeliveryOrders = async (req, res) => {
       .populate("assignedDeliveryPartner", "name email phone city status isActive")
       .populate("adminConfirmedBy", "name email")
       .populate("adminNotes.by", "name email")
+      .populate("cancellationDetails.cancelledBy", "name email")
       .sort({ createdAt: -1 });
 
     res.status(200).json({

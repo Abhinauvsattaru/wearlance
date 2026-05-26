@@ -230,6 +230,28 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
+    cancellationDetails: {
+      reason: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      cancelledByRole: {
+        type: String,
+        enum: ["", "admin", "customer", "system"],
+        default: "",
+      },
+      cancelledBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      cancelledAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
     assignedDeliveryPartner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "DeliveryPartner",

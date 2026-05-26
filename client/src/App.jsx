@@ -1159,7 +1159,7 @@ export default function App() {
     }
   };
 
-  const updateOrderStatus = async (orderId, orderStatus) => {
+  const updateOrderStatus = async (orderId, orderStatus, cancellationReason = "") => {
     if (!isAdmin || !token) {
       showToast("Admin login required");
       return;
@@ -1174,6 +1174,7 @@ export default function App() {
         },
         body: JSON.stringify({
           orderStatus,
+          cancellationReason,
         }),
       });
 
@@ -6359,6 +6360,28 @@ function OrderCard({
         </div>
       )}
 
+      {order.orderStatus === "Cancelled" && order.cancellationDetails?.reason && (
+        <div
+          style={{
+            marginBottom: 14,
+            border: `1px solid ${theme.red}`,
+            borderRadius: 16,
+            padding: 14,
+            background: "rgba(239,68,68,0.08)",
+          }}
+        >
+          <strong style={{ color: theme.red }}>Cancellation Reason</strong>
+          <p style={{ margin: "7px 0 0", color: theme.muted, lineHeight: 1.6 }}>
+            {order.cancellationDetails.reason}
+          </p>
+          {order.cancellationDetails.cancelledAt && (
+            <p style={{ margin: "7px 0 0", color: theme.muted, fontSize: 12 }}>
+              Cancelled on {new Date(order.cancellationDetails.cancelledAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
+
       <div
         style={{
           marginBottom: 14,
@@ -6755,7 +6778,24 @@ function OrderCard({
                 <h3>Update Status</h3>
                 <select
                   value={order.orderStatus}
-                  onChange={(e) => updateOrderStatus(order._id, e.target.value)}
+                  onChange={(e) => {
+                    const nextStatus = e.target.value;
+
+                    if (nextStatus === "Cancelled") {
+                      const reason = window.prompt(
+                        "Why are you cancelling this order? Example: phone not reachable, duplicate order, address not serviceable"
+                      );
+
+                      if (!reason || reason.trim().length < 5) {
+                        return;
+                      }
+
+                      updateOrderStatus(order._id, nextStatus, reason.trim());
+                      return;
+                    }
+
+                    updateOrderStatus(order._id, nextStatus);
+                  }}
                   style={formControl(theme)}
                 >
                   {orderStatuses.map((status) => (
