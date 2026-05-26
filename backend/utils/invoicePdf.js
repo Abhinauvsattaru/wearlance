@@ -137,19 +137,35 @@ const generateInvoicePdfBuffer = (order) => {
   y -= 6;
   c += "0.89 0.91 0.94 RG\n";
   c += line(36, y, 559, y);
-  y -= 26;
-  c += "0 0 0 rg\n";
-  c += text(390, y, "Items Price", "F1", 9);
-  c += text(500, y, money(order.itemsPrice), "F2", 9);
-  y -= 18;
-  c += text(390, y, "Delivery", "F1", 9);
-  c += text(500, y, "FREE", "F2", 9);
-  y -= 20;
-  c += "0.98 0.45 0.09 rg\n";
-  c += rect(380, y - 9, 179, 30, true);
+
+  // Clean total summary block
+  const summaryX = 350;
+  const summaryY = y - 96;
+  const summaryW = 209;
+
+  c += "0.97 0.98 0.99 rg\n";
+  c += rect(summaryX, summaryY, summaryW, 86, true);
+  c += "0.89 0.91 0.94 RG\n";
+  c += rect(summaryX, summaryY, summaryW, 86, false);
+
+  c += "0.06 0.09 0.16 rg\n";
+  c += rect(summaryX, summaryY + 60, summaryW, 26, true);
   c += "1 1 1 rg\n";
-  c += text(392, y, "Grand Total", "F2", 11);
-  c += text(500, y, money(order.totalPrice), "F2", 11);
+  c += text(summaryX + 14, summaryY + 68, "Order Summary", "F2", 10);
+
+  c += "0 0 0 rg\n";
+  c += text(summaryX + 14, summaryY + 43, "Items Price", "F1", 9);
+  c += text(summaryX + 144, summaryY + 43, money(order.itemsPrice), "F2", 9);
+
+  c += "0.40 0.45 0.53 rg\n";
+  c += text(summaryX + 14, summaryY + 26, "Delivery", "F1", 9);
+  c += text(summaryX + 144, summaryY + 26, "FREE", "F2", 9);
+
+  c += "0.98 0.45 0.09 rg\n";
+  c += rect(summaryX, summaryY, summaryW, 23, true);
+  c += "1 1 1 rg\n";
+  c += text(summaryX + 14, summaryY + 7, "Grand Total", "F2", 10);
+  c += text(summaryX + 144, summaryY + 7, money(order.totalPrice), "F2", 10);
 
   c += "0.40 0.45 0.53 rg\n";
   c += text(36, 88, isPendingCod ? "Note: This is a pending COD order invoice. Admin confirmation is not completed yet." : "Thank you for shopping with Wearlance.", "F2", 9);
