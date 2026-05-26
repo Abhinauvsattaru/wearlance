@@ -3,8 +3,10 @@ const Product = require("../models/Product");
 const DeliveryPartner = require("../models/DeliveryPartner");
 const DeliveryActionLog = require("../models/DeliveryActionLog");
 const sendEmail = require("../utils/sendEmail");
+const { generateInvoicePdfBuffer, getInvoiceFileName } = require("../utils/invoicePdf");
 
 const {
+  orderReceivedTemplate,
   orderConfirmationTemplate,
   orderStatusTemplate,
   deliveryOtpTemplate,
@@ -230,15 +232,15 @@ const placeOrder = async (req, res) => {
 
     await sendEmail({
       to: order.shippingAddress.email,
-      subject: `Wearlance Order Confirmed #${String(order._id)
+      subject: `Wearlance Order Received #${String(order._id)
         .slice(-8)
         .toUpperCase()}`,
-      html: orderConfirmationTemplate(order),
+      html: orderReceivedTemplate(order),
     });
 
     res.status(201).json({
       success: true,
-      message: "Order placed successfully",
+      message: "Order placed successfully. Waiting for admin confirmation.",
       order,
     });
   } catch (error) {
@@ -292,10 +294,19 @@ const confirmCodOrder = async (req, res) => {
 
     const updatedOrder = await order.save();
 
+    const invoicePdfBuffer = generateInvoicePdfBuffer(updatedOrder);
+
     await sendEmail({
       to: updatedOrder.shippingAddress.email,
-      subject: "Wearlance COD Order Confirmed",
-      html: orderStatusTemplate(updatedOrder),
+      subject: "Wearlance COD Order Confirmed - Invoice Attached",
+      html: orderConfirmationTemplate(updatedOrder, { invoiceAttached: true }),
+      attachments: [
+        {
+          filename: getInvoiceFileName(updatedOrder),
+          mimeType: "application/pdf",
+          content: invoicePdfBuffer.toString("base64"),
+        },
+      ],
     });
 
     res.status(200).json({

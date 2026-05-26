@@ -962,7 +962,15 @@ export default function App() {
     }
 
     setCart([]);
-    showToast("COD order placed successfully");
+    showToast("COD order placed successfully. Waiting for admin confirmation.");
+
+    if (data.order?._id) {
+      setMyOrders((prev) => [
+        data.order,
+        ...prev.filter((order) => order._id !== data.order._id),
+      ]);
+    }
+
     await fetchProducts();
     await fetchMyOrders();
     setPage("myOrders");
@@ -6315,6 +6323,30 @@ function OrderCard({
         </div>
       </div>
 
+      {customerView &&
+        order.paymentMethod === "COD" &&
+        !order.adminConfirmed &&
+        order.orderStatus === "Placed" && (
+          <div
+            style={{
+              marginBottom: 14,
+              border: `1px solid ${theme.orange2}`,
+              borderRadius: 16,
+              padding: 14,
+              background: "rgba(251,100,27,0.09)",
+            }}
+          >
+            <strong style={{ color: theme.orange2 }}>
+              Order not yet confirmed by admin
+            </strong>
+            <p style={{ margin: "7px 0 0", color: theme.muted, lineHeight: 1.6 }}>
+              Your COD order has been received. Wearlance admin will confirm your
+              phone/address before assigning delivery. Invoice will be available
+              after admin confirmation.
+            </p>
+          </div>
+        )}
+
       {adminView && (
         <div
           style={{
@@ -6408,21 +6440,39 @@ function OrderCard({
           justifyContent: "flex-end",
         }}
       >
-        <button
-          type="button"
-          onClick={() => downloadInvoice(order._id)}
-          style={{
-            border: "none",
-            borderRadius: 13,
-            padding: "12px 18px",
-            background: theme.blue,
-            color: "#fff",
-            fontWeight: 950,
-            cursor: "pointer",
-          }}
-        >
-          Download Invoice
-        </button>
+        {order.paymentMethod === "COD" && !order.adminConfirmed ? (
+          <button
+            type="button"
+            disabled
+            style={{
+              border: "none",
+              borderRadius: 13,
+              padding: "12px 18px",
+              background: "#94a3b8",
+              color: "#fff",
+              fontWeight: 950,
+              cursor: "not-allowed",
+            }}
+          >
+            Invoice after confirmation
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => downloadInvoice(order._id)}
+            style={{
+              border: "none",
+              borderRadius: 13,
+              padding: "12px 18px",
+              background: theme.blue,
+              color: "#fff",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            Download Invoice
+          </button>
+        )}
       </div>
 
       <div

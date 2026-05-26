@@ -15,7 +15,7 @@ const sendEmail = async (options = {}) => {
       return false;
     }
 
-    const subject = options.subject || "Wearlance OTP";
+    const subject = options.subject || "Wearlance Notification";
     const message = options.message || options.text || "Wearlance notification";
 
     const html =
@@ -25,6 +25,16 @@ const sendEmail = async (options = {}) => {
         <p>${message}</p>
       </div>`;
 
+    const attachments = Array.isArray(options.attachments)
+      ? options.attachments
+          .filter((attachment) => attachment && attachment.content && attachment.filename)
+          .map((attachment) => ({
+            filename: String(attachment.filename).slice(0, 120),
+            mimeType: attachment.mimeType || "application/octet-stream",
+            content: attachment.content,
+          }))
+      : [];
+
     const payload = {
       secret,
       to,
@@ -32,6 +42,7 @@ const sendEmail = async (options = {}) => {
       text: message,
       html,
       fromName: process.env.EMAIL_FROM_NAME || "Wearlance",
+      attachments,
     };
 
     const response = await fetch(webAppUrl, {
@@ -48,8 +59,6 @@ const sendEmail = async (options = {}) => {
     console.log("📧 Gmail Apps Script HTTP status:", response.status);
     console.log("📧 Gmail Apps Script response:", rawText.slice(0, 700));
 
-    // If the Apps Script request completed, frontend should be allowed to open OTP popup.
-    // The OTP has been reaching email, so do not block the user because of response parsing.
     return true;
   } catch (error) {
     console.error("❌ Email Error:", error.message);
