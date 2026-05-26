@@ -2471,6 +2471,25 @@ function FloatingContactButtons() {
       >
         📞
       </a>
+
+      <a
+        href={`mailto:${WEARLANCE_EMAIL}?subject=Wearlance Support Request&body=Hi Wearlance,%0D%0AI need help with my order.%0D%0A%0D%0AOrder ID:%0D%0AMobile number:%0D%0AIssue:`}
+        title="Email Wearlance"
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 999,
+          display: "grid",
+          placeItems: "center",
+          background: "#fb641b",
+          color: "#fff",
+          textDecoration: "none",
+          fontSize: 24,
+          boxShadow: "0 12px 30px rgba(251,100,27,0.35)",
+        }}
+      >
+        ✉️
+      </a>
     </div>
   );
 }
