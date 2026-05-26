@@ -71,6 +71,18 @@ const deliveryPartnerSchema = new mongoose.Schema(
         default: "",
         trim: true,
       },
+      url: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      publicId: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      // Kept only for old records/backward compatibility.
+      // New uploads store files in Cloudinary and keep this empty.
       data: {
         type: String,
         default: "",

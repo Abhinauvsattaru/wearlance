@@ -5,6 +5,7 @@ const DeliveryPartner = require("../models/DeliveryPartner");
 const DeliveryActionLog = require("../models/DeliveryActionLog");
 const DeliveryAccessInvite = require("../models/DeliveryAccessInvite");
 const sendEmail = require("../utils/sendEmail");
+const cloudinary = require("../config/cloudinary");
 
 const ADMIN_EMAILS = [
   "abhinauv22@gmail.com",
@@ -42,11 +43,48 @@ const isWearlanceAdmin = (user) => {
   );
 };
 
-const normalizeLicenseFile = (file = {}) => {
+const uploadLicenseToCloudinary = ({ data, fileName, mimeType, applicantEmail }) => {
+  return new Promise((resolve, reject) => {
+    const safeEmail = normalizeEmail(applicantEmail).replace(/[^a-z0-9._-]/g, "-");
+    const safeFileName = String(fileName || "driving-license")
+      .replace(/[^a-zA-Z0-9._-]/g, "-")
+      .slice(0, 90);
+
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: `wearlance/delivery-licenses/${safeEmail || "unknown"}`,
+        resource_type: "auto",
+        public_id: `${Date.now()}-${safeFileName}`,
+        overwrite: false,
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(result);
+      }
+    );
+
+    const base64Payload = String(data || "").split(",")[1];
+
+    if (!base64Payload) {
+      reject(new Error("Invalid driving license file"));
+      return;
+    }
+
+    stream.end(Buffer.from(base64Payload, "base64"));
+  });
+};
+
+const normalizeLicenseFile = async (file = {}, applicantEmail = "") => {
   if (!file || !file.data) {
     return {
       fileName: "",
       mimeType: "",
+      url: "",
+      publicId: "",
       data: "",
       uploadedAt: null,
     };
@@ -77,10 +115,19 @@ const normalizeLicenseFile = (file = {}) => {
     throw new Error("Driving license file must be below 2MB");
   }
 
+  const uploaded = await uploadLicenseToCloudinary({
+    data,
+    fileName,
+    mimeType,
+    applicantEmail,
+  });
+
   return {
     fileName,
     mimeType,
-    data,
+    url: uploaded.secure_url || "",
+    publicId: uploaded.public_id || "",
+    data: "",
     uploadedAt: new Date(),
   };
 };
@@ -406,7 +453,7 @@ const applyAsDeliveryPartner = async (req, res) => {
     };
 
     if (hasLicenseUpload) {
-      normalizedLicense = normalizeLicenseFile(drivingLicense);
+      normalizedLicense = await normalizeLicenseFile(drivingLicense, userEmail);
     }
 
     const existingApplication = await DeliveryPartner.findOne({ user: req.user._id });
