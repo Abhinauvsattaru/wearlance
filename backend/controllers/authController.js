@@ -35,6 +35,47 @@ const safeUser = (user, extra = {}) => {
 };
 
 
+const normalizeEmail = (email) => {
+  return String(email || "").toLowerCase().trim();
+};
+
+const isValidEmail = (email) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || ""));
+};
+
+const validateStrongPassword = (password) => {
+  const value = String(password || "");
+
+  if (value.length < 8) {
+    return "Password must be at least 8 characters";
+  }
+
+  if (!/[A-Za-z]/.test(value) || !/\d/.test(value)) {
+    return "Password must include at least one letter and one number";
+  }
+
+  return "";
+};
+
+const recordFailedLogin = async (user) => {
+  user.failedLoginAttempts = Number(user.failedLoginAttempts || 0) + 1;
+
+  if (user.failedLoginAttempts >= 7) {
+    user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+  }
+
+  await user.save();
+};
+
+const recordSuccessfulLogin = async (user, req) => {
+  user.failedLoginAttempts = 0;
+  user.lockUntil = null;
+  user.lastLoginAt = new Date();
+  user.lastLoginIp = getRequestIp(req);
+  await user.save();
+};
+
+
 const getRequestIp = (req) => {
   return (
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
@@ -105,7 +146,23 @@ const registerUser = async (req, res) => {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = normalizeEmail(email);
+
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    const passwordError = validateStrongPassword(password);
+
+    if (passwordError) {
+      return res.status(400).json({
+        success: false,
+        message: passwordError,
+      });
+    }
 
     let user = await User.findOne({ email: cleanEmail });
 
@@ -214,7 +271,14 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = normalizeEmail(email);
+
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
 
     const user = await User.findOne({ email: cleanEmail });
 
@@ -225,9 +289,18 @@ const loginUser = async (req, res) => {
       });
     }
 
+    if (user.lockUntil && new Date(user.lockUntil) > new Date()) {
+      return res.status(423).json({
+        success: false,
+        message: "Too many failed login attempts. Please try again later.",
+      });
+    }
+
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
+      await recordFailedLogin(user);
+
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -272,6 +345,8 @@ const loginUser = async (req, res) => {
       });
     }
 
+    await recordSuccessfulLogin(user, req);
+
     res.status(200).json({
       success: true,
       message: user.isAdmin ? "Admin login successful" : "Login successful",
@@ -298,7 +373,7 @@ const verifyDeliveryLoginOtp = async (req, res) => {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = normalizeEmail(email);
 
     const user = await User.findOne({ email: cleanEmail });
 
@@ -472,7 +547,7 @@ const verifySignupOtp = async (req, res) => {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = normalizeEmail(email);
 
     const user = await User.findOne({ email: cleanEmail });
 
@@ -545,7 +620,7 @@ const resendSignupOtp = async (req, res) => {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = normalizeEmail(email);
 
     const user = await User.findOne({ email: cleanEmail });
 
@@ -592,25 +667,28 @@ const forgotPassword = async (req, res) => {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = normalizeEmail(email);
 
-    const user = await User.findOne({ email: cleanEmail });
-
-    if (!user) {
-      return res.status(404).json({
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({
         success: false,
-        message: "No account found with this email",
+        message: "Please enter a valid email address",
       });
     }
 
-    await sendOtpToUser(user, "Wearlance password reset OTP");
+    const user = await User.findOne({ email: cleanEmail });
+
+    if (user) {
+      await sendOtpToUser(user, "Wearlance password reset OTP");
+    }
 
     res.status(200).json({
       success: true,
       requiresOtp: true,
       flow: "forgot-password",
-      message: "Password reset OTP sent to your email",
-      email: user.email,
+      message:
+        "If this email has a Wearlance account, a password reset OTP has been sent.",
+      email: cleanEmail,
     });
   } catch (error) {
     res.status(500).json({
@@ -632,14 +710,23 @@ const resetPasswordWithOtp = async (req, res) => {
       });
     }
 
-    if (newPassword.length < 6) {
+    const passwordError = validateStrongPassword(newPassword);
+
+    if (passwordError) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters",
+        message: passwordError,
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = normalizeEmail(email);
+
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
+    }
 
     const user = await User.findOne({ email: cleanEmail });
 

@@ -19,15 +19,37 @@ const deliveryRoutes = require("./routes/deliveryRoutes");
 
 const {
   generalLimiter,
+  readLimiter,
   authLimiter,
   otpLimiter,
+  orderLimiter,
+  adminLimiter,
+  uploadLimiter,
   paymentLimiter,
+  requestId,
+  securityAuditLogger,
   sanitizeRequest,
   blockSuspiciousUserAgents,
+  blockSuspiciousPaths,
+  validateRequestShape,
+  blockBadContentTypes,
+  paymentDisabled,
   securityHeaders,
 } = require("./middleware/securityMiddleware");
 
 const app = express();
+
+const validateCriticalEnv = () => {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    console.warn("⚠️ SECURITY WARNING: JWT_SECRET should be at least 32 characters.");
+  }
+
+  if (process.env.NODE_ENV === "production" && !process.env.FRONTEND_URL) {
+    console.warn("⚠️ SECURITY WARNING: FRONTEND_URL is missing in production.");
+  }
+};
+
+validateCriticalEnv();
 
 // DATABASE
 connectDB();
@@ -38,7 +60,13 @@ app.disable("x-powered-by");
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:3000",
+  "https://wearlance.vercel.app",
   process.env.FRONTEND_URL,
+  ...(process.env.FRONTEND_URLS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 ].filter(Boolean);
 
 app.use(
@@ -58,8 +86,13 @@ app.use(
   })
 );
 
+app.use(requestId);
+app.use(securityAuditLogger);
 app.use(securityHeaders);
+app.use(validateRequestShape);
+app.use(blockBadContentTypes);
 app.use(blockSuspiciousUserAgents);
+app.use(blockSuspiciousPaths);
 
 app.use(
   cors({
@@ -81,8 +114,8 @@ app.use(
 );
 
 // MIDDLEWARES
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "4mb" }));
+app.use(express.urlencoded({ extended: true, limit: "4mb" }));
 app.use(cookieParser());
 app.use(sanitizeRequest);
 app.use(generalLimiter);
@@ -138,10 +171,10 @@ app.get("/", (req, res) => {
       <body>
         <div class="card">
           <h1>WEARLANCE API Running 🚀</h1>
-          <p>Every Style ₹399 · Backend Connected · Security Hardened · Delivery Phase 1</p>
+          <p>Every Style ₹399 · Backend Connected · Security Phase 2 Hardened · COD Beta</p>
           <code>Environment: ${process.env.NODE_ENV || "development"}</code>
           <code>Frontend URL: ${process.env.FRONTEND_URL || "http://localhost:5173"}</code>
-          <code>Security: Helmet + CORS allowlist + rate limiting + NoSQL key sanitization</code>
+          <code>Security: Helmet + strict CORS + layered rate limits + request firewall + NoSQL sanitization</code>
           <code>GET /api/products</code>
           <code>POST /api/delivery/apply</code>
           <code>GET /api/delivery/me</code>
@@ -166,14 +199,15 @@ app.get("/", (req, res) => {
 });
 
 // ROUTES
-app.use("/api/auth", authLimiter, otpLimiter, authRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/upload", uploadRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/reviews", reviewRoutes);
-app.use("/api/payments", paymentLimiter, paymentRoutes);
-app.use("/api/invoices", invoiceRoutes);
-app.use("/api/delivery", deliveryRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/products", readLimiter, productRoutes);
+app.use("/api/upload", uploadLimiter, uploadRoutes);
+app.use("/api/orders", orderLimiter, orderRoutes);
+app.use("/api/reviews", orderLimiter, reviewRoutes);
+app.use("/api/payments", paymentDisabled, paymentLimiter, paymentRoutes);
+app.use("/api/invoices", readLimiter, invoiceRoutes);
+app.use("/api/delivery/admin", adminLimiter);
+app.use("/api/delivery", orderLimiter, deliveryRoutes);
 
 // 404
 app.use((req, res) => {

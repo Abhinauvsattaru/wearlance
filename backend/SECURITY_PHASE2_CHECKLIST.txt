@@ -1,0 +1,36 @@
+WEARLANCE SECURITY PHASE 2 CHECKLIST
+
+1. Render environment variables
+- JWT_SECRET: use a long random string, at least 32 characters.
+- FRONTEND_URL: https://wearlance.vercel.app
+- FRONTEND_URLS: add custom domain later, comma-separated if needed.
+- ENABLE_ONLINE_PAYMENTS: keep false/unset during COD-only beta.
+
+2. Vercel
+- Make sure frontend API URL points only to your Render backend.
+- Do not expose backend secrets in frontend env vars.
+
+3. Cloudflare recommended setup
+Best structure:
+User -> Cloudflare -> Vercel frontend -> Render backend -> MongoDB
+
+Recommended Cloudflare free settings:
+- Add your custom domain to Cloudflare.
+- Enable proxy/orange cloud for the domain.
+- Turn on Bot Fight Mode if available.
+- Add WAF custom rule:
+  Block URI path contains "/wp-admin" or "/wp-login" or ".env" or "phpmyadmin".
+- Add rate-limit/WAF rule for /api/auth and /api/orders if available.
+- Enable Always Use HTTPS.
+- Set SSL/TLS mode to Full.
+- Enable security level Medium or High during attack.
+
+4. Operational rules
+- Keep COD-only until Razorpay live mode and KYC are fully ready.
+- Test with 5 to 20 trusted local users first.
+- Monitor Render logs daily during beta.
+- Never share .env, JWT_SECRET, MongoDB URI, Gmail/App Script secret, or API keys.
+
+5. Security truth
+No app is impossible to hack. Good security is layered:
+CORS + Helmet + validation + rate limits + role checks + logging + Cloudflare + safe secrets + monitoring.
