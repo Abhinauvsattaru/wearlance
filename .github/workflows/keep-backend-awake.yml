@@ -1,0 +1,17 @@
+name: Keep Wearlance Backend Awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render backend
+        run: |
+          echo "Pinging Wearlance backend..."
+          curl -L --max-time 30 https://wearlance-backend.onrender.com/ || true
+          curl -L --max-time 30 https://wearlance-backend.onrender.com/api/products || true
+          echo "Ping completed."
